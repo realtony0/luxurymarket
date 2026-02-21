@@ -1,29 +1,10 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, Cormorant_Garamond, DM_Sans } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { CartProvider } from "@/components/cart/CartProvider";
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.vercel.app").replace(/\/+$/, "");
-
-const cormorant = Cormorant_Garamond({
-  variable: "--font-heading",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const dmSans = DM_Sans({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const bebas = Bebas_Neue({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: "400",
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -71,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" className={`${cormorant.variable} ${dmSans.variable} ${bebas.variable}`}>
+    <html lang="fr">
       <body className="min-h-screen antialiased font-sans">
         <CartProvider>
           <Header />
