@@ -1,0 +1,37 @@
+import { NextRequest, NextResponse } from "next/server";
+import { isAdmin } from "@/lib/auth-admin";
+import { deleteProduct, updateProduct } from "@/lib/products-data";
+import type { Product } from "@/lib/products";
+
+type Params = { params: Promise<{ id: string }> };
+
+export async function DELETE(_request: NextRequest, { params }: Params) {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
+  }
+  const { id } = await params;
+  const ok = await deleteProduct(id);
+  if (!ok) return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
+  return NextResponse.json({ ok: true });
+}
+
+export async function PUT(request: NextRequest, { params }: Params) {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
+  }
+  const { id } = await params;
+  const body = await request.json().catch(() => ({}));
+  const input: Partial<Product> = {};
+  if (body.name != null) input.name = String(body.name).trim();
+  if (typeof body.price === "number") input.price = body.price;
+  if (body.category != null) input.category = String(body.category).trim();
+  if (body.universe === "mode" || body.universe === "tout") input.universe = body.universe;
+  if (body.image != null) input.image = String(body.image).trim();
+  if (body.description != null) input.description = String(body.description).trim();
+  if (body.color != null) input.color = String(body.color).trim() || undefined;
+  if (Array.isArray(body.sizes)) input.sizes = body.sizes.map((s: unknown) => String(s));
+
+  const product = await updateProduct(id, input);
+  if (!product) return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
+  return NextResponse.json(product);
+}

@@ -1,0 +1,116 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import { getProductBySlug } from "@/lib/products-server";
+import { formatPrice } from "@/lib/products";
+import AddToCartActions from "@/components/AddToCartActions";
+
+type Props = { params: Promise<{ slug: string }> };
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.vercel.app").replace(/\/+$/, "");
+
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
+  if (!product) return { title: "Produit" };
+  const canonicalPath = `/products/${product.slug}`;
+  const productUrl = `${siteUrl}${canonicalPath}`;
+
+  return {
+    title: product.name,
+    description: product.description,
+    alternates: {
+      canonical: canonicalPath,
+    },
+    openGraph: {
+      title: product.name,
+      description: product.description,
+      type: "website",
+      url: productUrl,
+      images: [
+        {
+          url: product.image,
+          alt: product.name,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: product.name,
+      description: product.description,
+      images: [product.image],
+    },
+  };
+}
+
+export default async function ProductPage({ params }: Props) {
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
+  if (!product) notFound();
+
+  const backHref = product.universe === "mode" ? "/mode" : "/tout";
+
+  return (
+    <div className="min-h-screen bg-[var(--background)]">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <Link
+          href={backHref}
+          className="mb-5 inline-flex items-center rounded text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)] transition hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 sm:mb-6 sm:text-sm sm:font-medium sm:normal-case sm:tracking-normal"
+        >
+          ← Retour à la boutique
+        </Link>
+
+        <div className="grid gap-6 md:grid-cols-2 md:gap-12">
+          <div className="relative aspect-square overflow-hidden rounded-2xl bg-[var(--card)]">
+            <Image
+              src={product.image}
+              alt={product.name}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
+              {product.category}
+            </p>
+            <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl md:text-4xl">
+              {product.name}
+            </h1>
+            <p className="mt-3 text-2xl font-semibold text-[var(--accent)] sm:mt-4 sm:text-3xl">
+              {formatPrice(product.price)}
+            </p>
+            <p className="mt-5 text-sm leading-relaxed text-[var(--muted)] sm:mt-6 sm:text-base">
+              {product.description}
+            </p>
+            {product.color && (
+              <p className="mt-4 text-sm text-[var(--muted)] sm:text-base">
+                Couleur : {product.color}
+              </p>
+            )}
+            {product.sizes && product.sizes.length > 0 && (
+              <p className="mt-2 text-sm text-[var(--muted)] sm:text-base">
+                Tailles : {product.sizes.join(", ")}
+              </p>
+            )}
+            <AddToCartActions
+              backHref={backHref}
+              product={{
+                id: product.id,
+                slug: product.slug,
+                name: product.name,
+                price: product.price,
+                image: product.image,
+                universe: product.universe,
+                category: product.category,
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
