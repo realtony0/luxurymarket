@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { isAdmin } from "@/lib/auth-admin";
 import { deleteProduct, updateProduct } from "@/lib/products-data";
 import type { Product } from "@/lib/products";
@@ -12,6 +13,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params;
   const ok = await deleteProduct(id);
   if (!ok) return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
+  revalidateTag("products", "max");
   return NextResponse.json({ ok: true });
 }
 
@@ -33,5 +35,6 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   const product = await updateProduct(id, input);
   if (!product) return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
+  revalidateTag("products", "max");
   return NextResponse.json(product);
 }

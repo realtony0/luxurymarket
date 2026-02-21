@@ -2,14 +2,19 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { getProductBySlug } from "@/lib/products-server";
+import { getProductBySlug, getProducts } from "@/lib/products-server";
 import { formatPrice } from "@/lib/products";
 import AddToCartActions from "@/components/AddToCartActions";
 
 type Props = { params: Promise<{ slug: string }> };
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.vercel.app").replace(/\/+$/, "");
 
-export const dynamic = "force-dynamic";
+export const revalidate = 120;
+
+export async function generateStaticParams() {
+  const products = await getProducts();
+  return products.map((product) => ({ slug: product.slug }));
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;

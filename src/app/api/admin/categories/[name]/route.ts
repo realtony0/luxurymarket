@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { isAdmin } from "@/lib/auth-admin";
 import { deleteCategory } from "@/lib/categories-data";
 
@@ -16,6 +17,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
   try {
     const result = await deleteCategory(categoryName, replacement);
+    revalidateTag("products", "max");
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erreur lors de la suppression de catégorie.";

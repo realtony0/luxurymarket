@@ -32,23 +32,40 @@ function getSql() {
   return neon(url);
 }
 
+let ensureTablePromise: Promise<void> | null = null;
+
 export async function ensureTable() {
+  if (ensureTablePromise) {
+    await ensureTablePromise;
+    return;
+  }
+
   const sql = getSql();
   if (!sql) return;
-  await sql`
-    CREATE TABLE IF NOT EXISTS products (
-      id TEXT PRIMARY KEY,
-      slug TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      price INTEGER NOT NULL,
-      category TEXT NOT NULL,
-      universe TEXT NOT NULL CHECK (universe IN ('mode', 'tout')),
-      image TEXT NOT NULL,
-      description TEXT NOT NULL,
-      color TEXT,
-      sizes JSONB
-    )
-  `;
+
+  ensureTablePromise = (async () => {
+    await sql`
+      CREATE TABLE IF NOT EXISTS products (
+        id TEXT PRIMARY KEY,
+        slug TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        price INTEGER NOT NULL,
+        category TEXT NOT NULL,
+        universe TEXT NOT NULL CHECK (universe IN ('mode', 'tout')),
+        image TEXT NOT NULL,
+        description TEXT NOT NULL,
+        color TEXT,
+        sizes JSONB
+      )
+    `;
+  })();
+
+  try {
+    await ensureTablePromise;
+  } catch (error) {
+    ensureTablePromise = null;
+    throw error;
+  }
 }
 
 export function getDb() {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { isAdmin } from "@/lib/auth-admin";
 import { getProducts, addProduct } from "@/lib/products-data";
 import type { Product } from "@/lib/products";
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const product = await addProduct(input);
+    revalidateTag("products", "max");
     return NextResponse.json(product);
   } catch {
     return NextResponse.json({ error: "Erreur lors de l'ajout." }, { status: 500 });
