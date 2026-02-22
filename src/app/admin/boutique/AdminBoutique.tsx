@@ -702,7 +702,7 @@ export default function AdminBoutique() {
         <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">Boutique</p>
           <p className="mt-2 text-sm text-[var(--foreground)]">
-            Mode: <span className="font-semibold">{modeCount}</span> · Boutique: <span className="font-semibold">{toutCount}</span>
+            Mode: <span className="font-semibold">{modeCount}</span> · Univers: <span className="font-semibold">{toutCount}</span>
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
@@ -845,7 +845,7 @@ export default function AdminBoutique() {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Boutique</label>
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Univers</label>
             <select
               value={universeFilter}
               onChange={(e) => setUniverseFilter(e.target.value as UniverseFilter)}
@@ -853,7 +853,7 @@ export default function AdminBoutique() {
             >
               <option value="all">Tous</option>
               <option value="mode">Mode</option>
-              <option value="tout">Boutique</option>
+              <option value="tout">Univers</option>
             </select>
           </div>
           <div>
@@ -910,7 +910,7 @@ export default function AdminBoutique() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--foreground)]">Boutique *</label>
+                  <label className="block text-sm font-medium text-[var(--foreground)]">Univers *</label>
                   <select
                     value={form.universe}
                     onChange={(e) => {
@@ -925,7 +925,7 @@ export default function AdminBoutique() {
                     className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--foreground)]"
                   >
                     <option value="mode">Mode</option>
-                    <option value="tout">Boutique</option>
+                    <option value="tout">Univers</option>
                   </select>
                 </div>
                 <div>
@@ -1312,7 +1312,7 @@ export default function AdminBoutique() {
                   <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Nom</th>
                   <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Prix</th>
                   <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Catégorie</th>
-                  <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Boutique</th>
+                  <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Univers</th>
                   <th className="border-b border-[var(--border)] p-3 text-right text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Actions</th>
                 </tr>
               </thead>
@@ -1331,7 +1331,7 @@ export default function AdminBoutique() {
                     </td>
                     <td className="p-3 text-sm text-[var(--foreground)]">{formatPrice(p.price)}</td>
                     <td className="p-3 text-sm text-[var(--muted)]">{p.category}</td>
-                    <td className="p-3 text-sm text-[var(--muted)]">{p.universe === "mode" ? "Mode" : "Boutique"}</td>
+                    <td className="p-3 text-sm text-[var(--muted)]">{p.universe}</td>
                     <td className="p-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button
