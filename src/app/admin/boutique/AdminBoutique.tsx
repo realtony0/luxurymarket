@@ -20,7 +20,7 @@ type ProductFormState = {
   price: string;
   category: string;
   universe: "mode" | "tout";
-  image: string;
+  images: string[];
   description: string;
   color: string;
   sizes: string;
@@ -36,7 +36,7 @@ const EMPTY_FORM: ProductFormState = {
   price: "",
   category: "",
   universe: "mode",
-  image: "",
+  images: [],
   description: "",
   color: "",
   sizes: "",
@@ -80,10 +80,10 @@ function toPayload(form: ProductFormState): Omit<Product, "id" | "slug"> {
 
   const name = form.name.trim();
   const category = form.category.trim();
-  const image = form.image.trim();
+  const images = form.images.map((img) => img.trim()).filter(Boolean);
   const description = form.description.trim();
 
-  if (!name || !category || !image || !description) {
+  if (!name || !category || images.length === 0 || !description) {
     throw new Error("Tous les champs marqués * sont obligatoires.");
   }
 
@@ -92,7 +92,8 @@ function toPayload(form: ProductFormState): Omit<Product, "id" | "slug"> {
     price,
     category: form.universe === "tout" ? mapUniverseCategory(category) : mapModeCategory(category),
     universe: form.universe,
-    image,
+    image: images[0],
+    images,
     description,
   };
 
@@ -179,6 +180,10 @@ export default function AdminBoutique() {
   }
 
   function openEditForm(product: Product) {
+    const images = Array.isArray(product.images) && product.images.length > 0
+      ? product.images
+      : [product.image];
+
     setFormMode("edit");
     setEditingId(product.id);
     setForm({
@@ -186,7 +191,7 @@ export default function AdminBoutique() {
       price: String(product.price),
       category: product.category,
       universe: product.universe,
-      image: product.image,
+      images,
       description: product.description,
       color: product.color || "",
       sizes: fromSizes(product.sizes),
@@ -197,9 +202,8 @@ export default function AdminBoutique() {
     setFormOpen(true);
   }
 
-  async function handleImageUpload(file: File) {
+  async function handleImageUpload(file: File): Promise<string | null> {
     setImageUploadError("");
-    setImageUploading(true);
 
     try {
       const body = new FormData();
@@ -213,21 +217,38 @@ export default function AdminBoutique() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || typeof data?.url !== "string") {
         setImageUploadError(data.error || "Upload image impossible.");
-        return;
+        return null;
       }
 
-      setForm((prev) => ({ ...prev, image: data.url }));
+      return data.url;
     } catch {
       setImageUploadError("Upload image impossible.");
-    } finally {
-      setImageUploading(false);
+      return null;
     }
   }
 
   async function handleImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    await handleImageUpload(file);
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setImageUploading(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const file of files) {
+        const url = await handleImageUpload(file);
+        if (url) uploadedUrls.push(url);
+      }
+      if (uploadedUrls.length > 0) {
+        setForm((prev) => ({
+          ...prev,
+          images: Array.from(new Set([...prev.images, ...uploadedUrls])),
+        }));
+      }
+    } finally {
+      setImageUploading(false);
+    }
+
     e.target.value = "";
   }
 
@@ -249,7 +270,7 @@ export default function AdminBoutique() {
     setFormError("");
 
     if (imageUploading) {
-      setFormError("Attendez la fin de l'upload image.");
+      setFormError("Attendez la fin de l'upload des images.");
       return;
     }
 
@@ -706,39 +727,76 @@ export default function AdminBoutique() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--foreground)]">Photo produit *</label>
+                <label className="block text-sm font-medium text-[var(--foreground)]">Photos produit *</label>
                 <div className="mt-1 rounded-lg border border-[var(--border)] p-3">
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={handleImageFileChange}
                     className="block w-full text-sm text-[var(--foreground)] file:mr-3 file:rounded file:border file:border-[var(--border)] file:bg-[var(--background)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:uppercase file:tracking-[0.12em]"
                   />
                   <p className="mt-2 text-xs text-[var(--muted)]">
-                    JPG, PNG, WEBP ou AVIF. Taille max: 8MB.
+                    JPG, PNG, WEBP ou AVIF. Taille max: 8MB par image. Vous pouvez en selectionner plusieurs.
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--muted)]">
+                    La premiere image sera utilisee comme image principale.
                   </p>
 
                   {imageUploading && (
-                    <p className="mt-2 text-xs font-medium text-[var(--muted)]">Upload en cours…</p>
+                    <p className="mt-2 text-xs font-medium text-[var(--muted)]">Upload des images en cours…</p>
                   )}
                   {imageUploadError && (
                     <p className="mt-2 text-xs text-[var(--accent-deep)]">{imageUploadError}</p>
                   )}
 
-                  {form.image && (
+                  {form.images.length > 0 && (
                     <div className="mt-3">
-                      <div className="relative h-24 w-24 overflow-hidden rounded border border-[var(--border)]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={form.image} alt="" className="h-full w-full object-cover" />
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {form.images.map((img, idx) => (
+                          <div key={`${img}-${idx}`} className="rounded border border-[var(--border)] p-1.5">
+                            <div className="relative h-24 w-full overflow-hidden rounded bg-[var(--background)]">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={img} alt="" className="h-full w-full object-cover" />
+                            </div>
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                                {idx === 0 ? "Principale" : `Photo ${idx + 1}`}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {idx > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setForm((f) => {
+                                        const selected = f.images[idx];
+                                        if (!selected) return f;
+                                        const rest = f.images.filter((_, imageIndex) => imageIndex !== idx);
+                                        return { ...f, images: [selected, ...rest] };
+                                      })
+                                    }
+                                    className="rounded border border-[var(--border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                                  >
+                                    Principale
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setForm((f) => ({
+                                      ...f,
+                                      images: f.images.filter((_, imageIndex) => imageIndex !== idx),
+                                    }))
+                                  }
+                                  className="rounded border border-[var(--border)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                                >
+                                  Retirer
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <p className="mt-2 break-all text-[11px] text-[var(--muted)]">{form.image}</p>
-                      <button
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, image: "" }))}
-                        className="mt-2 rounded border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                      >
-                        Retirer l&apos;image
-                      </button>
                     </div>
                   )}
                 </div>
@@ -838,7 +896,7 @@ export default function AdminBoutique() {
                   className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-70"
                 >
                   {imageUploading
-                    ? "Upload image…"
+                    ? "Upload images…"
                     : formLoading
                       ? "Enregistrement…"
                       : formMode === "edit"
@@ -884,7 +942,7 @@ export default function AdminBoutique() {
                     <td className="p-3">
                       <div className="relative h-14 w-14 overflow-hidden rounded bg-[var(--muted)]/20">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={p.image} alt="" className="h-full w-full object-cover" />
+                        <img src={p.images?.[0] || p.image} alt="" className="h-full w-full object-cover" />
                       </div>
                     </td>
                     <td className="p-3">

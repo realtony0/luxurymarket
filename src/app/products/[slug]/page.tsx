@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { getProductBySlug, getProducts } from "@/lib/products-server";
 import { formatPrice } from "@/lib/products";
 import { mapModeCategory, mapUniverseCategory } from "@/lib/universe-categories";
 import AddToCartActions from "@/components/AddToCartActions";
+import ProductGallery from "@/components/ProductGallery";
 
 type Props = { params: Promise<{ slug: string }> };
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.vercel.app").replace(/\/+$/, "");
@@ -23,6 +23,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!product) return { title: "Produit" };
   const canonicalPath = `/products/${product.slug}`;
   const productUrl = `${siteUrl}${canonicalPath}`;
+  const gallery = Array.isArray(product.images) && product.images.length > 0
+    ? product.images
+    : [product.image];
 
   return {
     title: product.name,
@@ -35,18 +38,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: product.description,
       type: "website",
       url: productUrl,
-      images: [
-        {
-          url: product.image,
-          alt: product.name,
-        },
-      ],
+      images: gallery.map((url) => ({ url, alt: product.name })),
     },
     twitter: {
       card: "summary_large_image",
       title: product.name,
       description: product.description,
-      images: [product.image],
+      images: gallery,
     },
   };
 }
@@ -60,6 +58,9 @@ export default async function ProductPage({ params }: Props) {
   const displayedCategory = product.universe === "tout"
     ? mapUniverseCategory(product.category)
     : mapModeCategory(product.category);
+  const gallery = Array.isArray(product.images) && product.images.length > 0
+    ? product.images
+    : [product.image];
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -72,16 +73,7 @@ export default async function ProductPage({ params }: Props) {
         </Link>
 
         <div className="grid gap-6 md:grid-cols-2 md:gap-12">
-          <div className="relative aspect-square overflow-hidden rounded-2xl bg-[var(--card)]">
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority
-            />
-          </div>
+          <ProductGallery name={product.name} images={gallery} />
           <div>
             <p className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
               {displayedCategory}
@@ -103,7 +95,7 @@ export default async function ProductPage({ params }: Props) {
                 slug: product.slug,
                 name: product.name,
                 price: product.price,
-                image: product.image,
+                image: gallery[0] || product.image,
                 universe: product.universe,
                 category: product.category,
                 color: product.color,

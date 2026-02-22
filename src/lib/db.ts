@@ -53,10 +53,21 @@ export async function ensureTable() {
         category TEXT NOT NULL,
         universe TEXT NOT NULL CHECK (universe IN ('mode', 'tout')),
         image TEXT NOT NULL,
+        images JSONB,
         description TEXT NOT NULL,
         color TEXT,
         sizes JSONB
       )
+    `;
+
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB`;
+
+    await sql`
+      UPDATE products
+      SET images = jsonb_build_array(image)
+      WHERE images IS NULL
+         OR jsonb_typeof(images) <> 'array'
+         OR (jsonb_typeof(images) = 'array' AND jsonb_array_length(images) = 0)
     `;
   })();
 

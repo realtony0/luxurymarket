@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
-import type { Product } from "./products";
+import { normalizeProductImages, type Product } from "./products";
 import { getDb, ensureTable } from "./db";
 
 const DATA_PATH = path.join(process.cwd(), "data", "products.json");
@@ -13,13 +13,29 @@ type DbRow = {
   category: string;
   universe: "mode" | "tout";
   image: string;
+  images: unknown;
   description: string;
   color: string | null;
   sizes: string[] | null;
 };
 
+function parseDbArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function rowToProduct(row: DbRow): Product {
   const sizes = Array.isArray(row.sizes) ? row.sizes : null;
+  const images = normalizeProductImages(parseDbArray(row.images), row.image);
+  const image = images[0] || row.image;
+
   return {
     id: row.id,
     slug: row.slug,
@@ -27,10 +43,22 @@ function rowToProduct(row: DbRow): Product {
     price: Number(row.price),
     category: row.category,
     universe: row.universe,
-    image: row.image,
+    image,
+    ...(images.length > 0 && { images }),
     description: row.description,
     ...(row.color && { color: row.color }),
     ...(sizes && sizes.length > 0 && { sizes: sizes.map(String) }),
+  };
+}
+
+function normalizeProduct(product: Product): Product {
+  const images = normalizeProductImages(product.images, product.image);
+  const image = images[0] || product.image;
+
+  return {
+    ...product,
+    image,
+    ...(images.length > 0 && { images }),
   };
 }
 
@@ -38,7 +66,7 @@ async function fromFile(): Promise<Product[]> {
   try {
     const raw = await readFile(DATA_PATH, "utf-8");
     const data = JSON.parse(raw) as Product[];
-    return Array.isArray(data) ? data : [];
+    return Array.isArray(data) ? data.map(normalizeProduct) : [];
   } catch {
     return [];
   }
@@ -92,38 +120,50 @@ function generateId(): string {
 }
 
 export async function addProduct(input: Omit<Product, "id" | "slug">): Promise<Product> {
+  const normalizedImages = normalizeProductImages(input.images, input.image);
+  const primaryImage = normalizedImages[0];
+  if (!primaryImage) {
+    throw new Error("Au moins une image produit est requise.");
+  }
+
+  const productInput: Omit<Product, "id" | "slug"> = {
+    ...input,
+    image: primaryImage,
+    ...(normalizedImages.length > 0 && { images: normalizedImages }),
+  };
+
   const sql = getDb();
   if (sql) {
     await ensureTable();
     const products = await getProducts();
-    let slug = slugify(input.name);
+    let slug = slugify(productInput.name);
     let suffix = 0;
     while (products.some((p) => p.slug === slug)) {
       suffix += 1;
-      slug = `${slugify(input.name)}-${suffix}`;
+      slug = `${slugify(productInput.name)}-${suffix}`;
     }
     const id = generateId();
     await sql`
-      INSERT INTO products (id, slug, name, price, category, universe, image, description, color, sizes)
-      VALUES (${id}, ${slug}, ${input.name}, ${input.price}, ${input.category}, ${input.universe}, ${input.image}, ${input.description}, ${input.color ?? null}, ${input.sizes ? JSON.stringify(input.sizes) : null})
+      INSERT INTO products (id, slug, name, price, category, universe, image, images, description, color, sizes)
+      VALUES (${id}, ${slug}, ${productInput.name}, ${productInput.price}, ${productInput.category}, ${productInput.universe}, ${productInput.image}, ${JSON.stringify(productInput.images)}, ${productInput.description}, ${productInput.color ?? null}, ${productInput.sizes ? JSON.stringify(productInput.sizes) : null})
     `;
-    return { ...input, id, slug };
+    return { ...productInput, id, slug };
   }
   const products = await fromFile();
-  let slug = slugify(input.name);
+  let slug = slugify(productInput.name);
   let suffix = 0;
   while (products.some((p) => p.slug === slug)) {
     suffix += 1;
-    slug = `${slugify(input.name)}-${suffix}`;
+    slug = `${slugify(productInput.name)}-${suffix}`;
   }
   const product: Product = {
-    ...input,
+    ...productInput,
     id: generateId(),
     slug,
   };
   products.push(product);
   await writeFile(DATA_PATH, JSON.stringify(products, null, 2), "utf-8");
-  return product;
+  return normalizeProduct(product);
 }
 
 export async function updateProduct(id: string, input: Partial<Omit<Product, "id">>): Promise<Product | null> {
@@ -133,6 +173,10 @@ export async function updateProduct(id: string, input: Partial<Omit<Product, "id
     const existing = await getProductById(id);
     if (!existing) return null;
     const updated = { ...existing, ...input };
+    const normalizedImages = normalizeProductImages(updated.images, updated.image);
+    updated.image = normalizedImages[0] || "";
+    updated.images = normalizedImages;
+
     if (input.name && input.name !== existing.name) {
       updated.slug = slugify(input.name);
       const products = await getProducts();
@@ -150,17 +194,22 @@ export async function updateProduct(id: string, input: Partial<Omit<Product, "id
         category = ${updated.category},
         universe = ${updated.universe},
         image = ${updated.image},
+        images = ${JSON.stringify(updated.images)},
         description = ${updated.description},
         color = ${updated.color ?? null},
         sizes = ${updated.sizes ? JSON.stringify(updated.sizes) : null}
       WHERE id = ${id}
     `;
-    return updated;
+    return normalizeProduct(updated);
   }
   const products = await fromFile();
   const index = products.findIndex((p) => p.id === id);
   if (index === -1) return null;
   const updated = { ...products[index], ...input };
+  const normalizedImages = normalizeProductImages(updated.images, updated.image);
+  updated.image = normalizedImages[0] || "";
+  updated.images = normalizedImages;
+
   if (input.name && input.name !== products[index].name) {
     updated.slug = slugify(input.name);
     let suffix = 0;
@@ -169,9 +218,9 @@ export async function updateProduct(id: string, input: Partial<Omit<Product, "id
       updated.slug = `${slugify(input.name)}-${suffix}`;
     }
   }
-  products[index] = updated;
+  products[index] = normalizeProduct(updated);
   await writeFile(DATA_PATH, JSON.stringify(products, null, 2), "utf-8");
-  return updated;
+  return normalizeProduct(updated);
 }
 
 export async function countProductsByCategory(category: string): Promise<number> {

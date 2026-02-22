@@ -16,6 +16,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
   const { addItem } = useCart();
   const colorOptions = parseColorList(product.color);
   const primaryColor = colorOptions[0];
+  const primaryImage = product.images?.[0] || product.image;
 
   useEffect(() => {
     const el = ref.current;
@@ -60,7 +61,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
         <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-2xl">
           <div className="relative aspect-square overflow-hidden bg-[var(--muted)]/10">
             <Image
-              src={product.image}
+              src={primaryImage}
               alt={product.name}
               fill
               className="object-cover transition duration-700 group-hover:scale-110"

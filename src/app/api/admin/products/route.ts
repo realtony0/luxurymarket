@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { isAdmin } from "@/lib/auth-admin";
 import { getProducts, addProduct } from "@/lib/products-data";
-import type { Product } from "@/lib/products";
+import { normalizeProductImages, type Product } from "@/lib/products";
 
 export async function GET() {
   if (!(await isAdmin())) {
@@ -23,14 +23,16 @@ export async function POST(request: NextRequest) {
     category,
     universe,
     image,
+    images,
     description,
     color,
     sizes,
   } = body;
 
-  if (!name || typeof price !== "number" || !category || !universe || !image || !description) {
+  const normalizedImages = normalizeProductImages(images, image);
+  if (!name || typeof price !== "number" || !category || !universe || normalizedImages.length === 0 || !description) {
     return NextResponse.json(
-      { error: "Champs requis : name, price, category, universe, image, description." },
+      { error: "Champs requis : name, price, category, universe, images/image, description." },
       { status: 400 }
     );
   }
@@ -43,7 +45,8 @@ export async function POST(request: NextRequest) {
     price: Number(price),
     category: String(category).trim(),
     universe,
-    image: String(image).trim(),
+    image: normalizedImages[0],
+    images: normalizedImages,
     description: String(description).trim(),
   };
   if (color != null) input.color = String(color).trim() || undefined;
