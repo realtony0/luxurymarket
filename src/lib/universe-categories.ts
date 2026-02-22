@@ -7,6 +7,13 @@ export const UNIVERSE_CATEGORIES = [
 
 export const MODE_CATEGORIES = [
   "Vêtements",
+  "V/women",
+  "Tshirt",
+  "Pantalon",
+  "Chemise",
+  "Lacoste",
+  "Set",
+  "Pull",
   "Chaussures",
   "Maroquinerie",
   "Accessoires",
@@ -45,6 +52,50 @@ export function mapUniverseCategory(rawCategory: string): (typeof UNIVERSE_CATEG
 
 export function mapModeCategory(rawCategory: string): (typeof MODE_CATEGORIES)[number] {
   const category = normalize(rawCategory);
+
+  if (
+    category.includes("v/women") ||
+    category.includes("v women") ||
+    category.includes("v-women") ||
+    category.includes("vwomen")
+  ) {
+    return "V/women";
+  }
+
+  if (
+    category.includes("tshirt") ||
+    category.includes("t-shirt") ||
+    category.includes("t shirt") ||
+    category.includes("tee shirt") ||
+    category.includes("tee-shirt")
+  ) {
+    return "Tshirt";
+  }
+
+  if (category.includes("pantalon") || category.includes("jean")) {
+    return "Pantalon";
+  }
+
+  if (category.includes("chemise")) {
+    return "Chemise";
+  }
+
+  if (category.includes("lacoste") || category.includes("polo")) {
+    return "Lacoste";
+  }
+
+  if (category.includes("set") || category.includes("ensemble")) {
+    return "Set";
+  }
+
+  if (
+    category.includes("pull") ||
+    category.includes("sweat") ||
+    category.includes("hoodie") ||
+    category.includes("sweatshirt")
+  ) {
+    return "Pull";
+  }
 
   if (category.includes("vetement")) {
     return "Vêtements";
