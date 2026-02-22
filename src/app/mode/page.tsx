@@ -5,9 +5,9 @@ import {
   mapModeCategory,
   mapModeSubcategory,
   MODE_CATEGORIES,
-  MODE_CLOTHING_SUBCATEGORIES,
 } from "@/lib/universe-categories";
 import ProductCard from "@/components/ProductCard";
+import ModeClothingSelector from "@/components/ModeClothingSelector";
 
 export const metadata: Metadata = {
   title: "Mode",
@@ -87,39 +87,7 @@ export default async function ModePage() {
             </header>
 
             {category === "Vêtements" ? (
-              <div className="space-y-8">
-                {MODE_CLOTHING_SUBCATEGORIES.filter((subCategory) =>
-                  list.some((product) => product.subCategory === subCategory)
-                ).map((subCategory) => (
-                  <section key={subCategory}>
-                    <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
-                      {subCategory}
-                    </h3>
-                    <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 md:gap-6 lg:grid-cols-4 lg:gap-8">
-                      {list
-                        .filter((product) => product.subCategory === subCategory)
-                        .map((product) => (
-                          <ProductCard key={product.id} product={product} />
-                        ))}
-                    </div>
-                  </section>
-                ))}
-
-                {list.some((product) => !product.subCategory) && (
-                  <section>
-                    <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
-                      Autres vetements
-                    </h3>
-                    <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 md:gap-6 lg:grid-cols-4 lg:gap-8">
-                      {list
-                        .filter((product) => !product.subCategory)
-                        .map((product) => (
-                          <ProductCard key={product.id} product={product} />
-                        ))}
-                    </div>
-                  </section>
-                )}
-              </div>
+              <ModeClothingSelector products={list} />
             ) : (
               <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 md:gap-6 lg:grid-cols-4 lg:gap-8">
                 {list.map((product) => (
