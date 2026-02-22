@@ -1,10 +1,10 @@
 import Image from "next/image";
 import type { Metadata } from "next";
 import { getProductsByUniverse } from "@/lib/products-server";
+import { getModeSubcategories } from "@/lib/categories-data";
 import {
-  mapModeCategory,
-  mapModeSubcategory,
   MODE_CATEGORIES,
+  resolveModeDisplayCategory,
 } from "@/lib/universe-categories";
 import ProductCard from "@/components/ProductCard";
 import ModeClothingSelector from "@/components/ModeClothingSelector";
@@ -25,10 +25,10 @@ function slug(s: string) {
 
 export default async function ModePage() {
   const products = await getProductsByUniverse("mode");
+  const modeSubcategories = await getModeSubcategories();
   const mappedProducts = products.map((product) => ({
     ...product,
-    category: mapModeCategory(product.category),
-    subCategory: mapModeSubcategory(product.category),
+    ...resolveModeDisplayCategory(product.category, modeSubcategories),
   }));
 
   const categories = MODE_CATEGORIES.filter((category) =>
@@ -87,7 +87,7 @@ export default async function ModePage() {
             </header>
 
             {category === "Vêtements" ? (
-              <ModeClothingSelector products={list} />
+              <ModeClothingSelector products={list} subcategories={modeSubcategories} />
             ) : (
               <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 md:gap-6 lg:grid-cols-4 lg:gap-8">
                 {list.map((product) => (

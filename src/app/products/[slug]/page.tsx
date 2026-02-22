@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProductBySlug, getProducts } from "@/lib/products-server";
+import { getModeSubcategories } from "@/lib/categories-data";
 import { formatPrice } from "@/lib/products";
-import { mapModeCategory, mapModeSubcategory, mapUniverseCategory } from "@/lib/universe-categories";
+import { mapUniverseCategory, resolveModeDisplayCategory } from "@/lib/universe-categories";
 import AddToCartActions from "@/components/AddToCartActions";
 import ProductGallery from "@/components/ProductGallery";
 
@@ -55,11 +56,13 @@ export default async function ProductPage({ params }: Props) {
   if (!product) notFound();
 
   const backHref = product.universe === "mode" ? "/mode" : "/univers";
+  const modeDisplay = product.universe === "mode"
+    ? resolveModeDisplayCategory(product.category, await getModeSubcategories())
+    : null;
   const displayedCategory = product.universe === "tout"
     ? mapUniverseCategory(product.category)
-    : mapModeCategory(product.category);
-  const displayedSubCategory =
-    product.universe === "mode" ? mapModeSubcategory(product.category) : null;
+    : modeDisplay?.category || "Mode";
+  const displayedSubCategory = modeDisplay?.subCategory || null;
   const gallery = Array.isArray(product.images) && product.images.length > 0
     ? product.images
     : [product.image];

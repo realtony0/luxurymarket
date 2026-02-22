@@ -134,6 +134,27 @@ export function mapModeSubcategory(rawCategory: string): ModeClothingSubcategory
   return detectModeClothingSubcategory(rawCategory);
 }
 
+export function matchModeSubcategory(
+  rawCategory: string,
+  subcategories: readonly string[] = []
+): string | null {
+  const category = normalize(rawCategory);
+  const directMatch = subcategories.find((subcategory) => normalize(subcategory) === category);
+  if (directMatch) return directMatch;
+  return detectModeClothingSubcategory(rawCategory);
+}
+
+export function resolveModeDisplayCategory(
+  rawCategory: string,
+  subcategories: readonly string[] = []
+): { category: (typeof MODE_CATEGORIES)[number]; subCategory: string | null } {
+  const subCategory = matchModeSubcategory(rawCategory, subcategories);
+  if (subCategory) {
+    return { category: "Vêtements", subCategory };
+  }
+  return { category: mapModeCategory(rawCategory), subCategory: null };
+}
+
 export function normalizeModeCategoryInput(rawCategory: string): string {
   const category = normalize(rawCategory);
   const clothingSubcategory = detectModeClothingSubcategory(rawCategory);

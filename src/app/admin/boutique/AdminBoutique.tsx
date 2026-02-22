@@ -7,7 +7,7 @@ import { formatPrice } from "@/lib/products";
 import {
   MODE_CATEGORIES,
   MODE_CLOTHING_SUBCATEGORIES,
-  mapModeSubcategory,
+  matchModeSubcategory,
   normalizeModeCategoryInput,
   mapUniverseCategory,
 } from "@/lib/universe-categories";
@@ -39,6 +39,11 @@ type ProductFormState = {
 };
 
 type CategoryInfo = {
+  name: string;
+  count: number;
+};
+
+type ModeSubcategoryInfo = {
   name: string;
   count: number;
 };
@@ -211,6 +216,13 @@ export default function AdminBoutique() {
   const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
   const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
   const [renameDrafts, setRenameDrafts] = useState<Record<string, string>>({});
+  const [modeSubcategories, setModeSubcategories] = useState<ModeSubcategoryInfo[]>([]);
+  const [newModeSubcategory, setNewModeSubcategory] = useState("");
+  const [modeSubcategoryError, setModeSubcategoryError] = useState("");
+  const [modeSubcategoryLoading, setModeSubcategoryLoading] = useState(false);
+  const [deletingModeSubcategory, setDeletingModeSubcategory] = useState<string | null>(null);
+  const [renamingModeSubcategory, setRenamingModeSubcategory] = useState<string | null>(null);
+  const [modeSubcategoryRenameDrafts, setModeSubcategoryRenameDrafts] = useState<Record<string, string>>({});
   const [adminView, setAdminView] = useState<AdminView>("products");
 
   async function refreshAll(silent = false) {
@@ -218,21 +230,24 @@ export default function AdminBoutique() {
     else setLoading(true);
 
     try {
-      const [productsRes, categoriesRes] = await Promise.all([
+      const [productsRes, categoriesRes, modeSubcategoriesRes] = await Promise.all([
         fetch("/api/admin/products", { cache: "no-store" }),
         fetch("/api/admin/categories", { cache: "no-store" }),
+        fetch("/api/admin/mode-subcategories", { cache: "no-store" }),
       ]);
 
-      if (productsRes.status === 401 || categoriesRes.status === 401) {
+      if (productsRes.status === 401 || categoriesRes.status === 401 || modeSubcategoriesRes.status === 401) {
         window.location.href = "/admin";
         return;
       }
 
       const productsData = await productsRes.json().catch(() => []);
       const categoriesData = await categoriesRes.json().catch(() => []);
+      const modeSubcategoriesData = await modeSubcategoriesRes.json().catch(() => []);
 
       setProducts(Array.isArray(productsData) ? productsData : []);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      setModeSubcategories(Array.isArray(modeSubcategoriesData) ? modeSubcategoriesData : []);
       setProductsError("");
     } finally {
       setLoading(false);
@@ -264,7 +279,9 @@ export default function AdminBoutique() {
     const images = Array.isArray(product.images) && product.images.length > 0
       ? product.images
       : [product.image];
-    const modeSubCategory = product.universe === "mode" ? mapModeSubcategory(product.category) : null;
+    const knownModeSubcategories = modeSubcategories.map((item) => item.name);
+    const modeSubCategory =
+      product.universe === "mode" ? matchModeSubcategory(product.category, knownModeSubcategories) : null;
 
     setFormMode("edit");
     setEditingId(product.id);
@@ -508,6 +525,112 @@ export default function AdminBoutique() {
     }
   }
 
+  async function handleCreateModeSubcategory() {
+    const name = newModeSubcategory.trim();
+    setModeSubcategoryError("");
+    if (!name) {
+      setModeSubcategoryError("Nom de sous-categorie requis.");
+      return;
+    }
+
+    setModeSubcategoryLoading(true);
+    try {
+      const res = await fetch("/api/admin/mode-subcategories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setModeSubcategoryError(data.error || "Erreur lors de la création de sous-catégorie.");
+        return;
+      }
+
+      setNewModeSubcategory("");
+      await refreshAll(true);
+    } finally {
+      setModeSubcategoryLoading(false);
+    }
+  }
+
+  async function handleDeleteModeSubcategory(subcategory: ModeSubcategoryInfo) {
+    setModeSubcategoryError("");
+
+    if (subcategory.count > 0) {
+      setModeSubcategoryError(
+        `Impossible de supprimer "${subcategory.name}" car cette sous-categorie contient des produits.`
+      );
+      return;
+    }
+
+    if (!confirm(`Supprimer la sous-categorie "${subcategory.name}" ?`)) return;
+
+    setDeletingModeSubcategory(subcategory.name);
+    try {
+      const res = await fetch(`/api/admin/mode-subcategories/${encodeURIComponent(subcategory.name)}`, {
+        method: "DELETE",
+      });
+
+      if (res.status === 401) {
+        window.location.href = "/admin";
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setModeSubcategoryError(data.error || "Erreur lors de la suppression de sous-catégorie.");
+        return;
+      }
+
+      await refreshAll(true);
+    } finally {
+      setDeletingModeSubcategory(null);
+    }
+  }
+
+  async function handleRenameModeSubcategory(subcategory: ModeSubcategoryInfo) {
+    const nextName = (modeSubcategoryRenameDrafts[subcategory.name] || subcategory.name).trim();
+    setModeSubcategoryError("");
+
+    if (!nextName) {
+      setModeSubcategoryError("Nouveau nom de sous-categorie requis.");
+      return;
+    }
+
+    if (nextName === subcategory.name) return;
+
+    setRenamingModeSubcategory(subcategory.name);
+    try {
+      const res = await fetch(`/api/admin/mode-subcategories/${encodeURIComponent(subcategory.name)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nextName }),
+      });
+
+      if (res.status === 401) {
+        window.location.href = "/admin";
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setModeSubcategoryError(data.error || "Erreur lors du renommage de sous-catégorie.");
+        return;
+      }
+
+      setModeSubcategoryRenameDrafts((prev) => {
+        const next = { ...prev };
+        delete next[subcategory.name];
+        return next;
+      });
+
+      await refreshAll(true);
+    } finally {
+      setRenamingModeSubcategory(null);
+    }
+  }
+
   function toggleFormSize(size: string) {
     setForm((prev) => {
       const current = toSizes(prev.sizes) || [];
@@ -521,6 +644,18 @@ export default function AdminBoutique() {
   const existingCategories = useMemo(() => categories.map((c) => c.name), [categories]);
   const formColorOptions = useMemo(() => parseColorList(form.color), [form.color]);
   const formSizeOptions = useMemo(() => toSizes(form.sizes) || [], [form.sizes]);
+  const modeSubcategoryOptions = useMemo(() => {
+    const values = modeSubcategories.map((item) => item.name).filter(Boolean);
+    const uniqueValues = Array.from(new Set(values));
+    if (uniqueValues.length === 0) {
+      return [...MODE_CLOTHING_SUBCATEGORIES];
+    }
+    const currentSubcategory = form.subCategory.trim();
+    if (currentSubcategory && !uniqueValues.includes(currentSubcategory)) {
+      uniqueValues.unshift(currentSubcategory);
+    }
+    return uniqueValues;
+  }, [modeSubcategories, form.subCategory]);
   const isModeClothingCategory = form.universe === "mode" && normalizeModeCategoryInput(form.category) === "Vêtements";
 
   function setFormColors(colors: string[]) {
@@ -829,6 +964,111 @@ export default function AdminBoutique() {
             </table>
           </div>
         )}
+
+        <div className="mt-8 border-t border-[var(--border)] pt-6">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-56 flex-1">
+              <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                Nouvelle sous-catégorie vêtements
+              </label>
+              <input
+                type="text"
+                value={newModeSubcategory}
+                onChange={(e) => setNewModeSubcategory(e.target.value)}
+                placeholder="Ex. Jogging, Body, Casquette"
+                className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleCreateModeSubcategory}
+              disabled={modeSubcategoryLoading}
+              className="rounded-lg bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-70"
+            >
+              {modeSubcategoryLoading ? "Ajout…" : "Créer sous-catégorie"}
+            </button>
+          </div>
+
+          {modeSubcategoryError && (
+            <p className="mt-2 text-sm text-[var(--accent-deep)]">{modeSubcategoryError}</p>
+          )}
+
+          {loading ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">Chargement des sous-catégories…</p>
+          ) : (
+            <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--border)]">
+              <table className="w-full border-collapse bg-white">
+                <thead>
+                  <tr className="bg-[var(--background)]">
+                    <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                      Sous-catégorie
+                    </th>
+                    <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                      Produits
+                    </th>
+                    <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                      Renommer
+                    </th>
+                    <th className="border-b border-[var(--border)] p-3 text-right text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modeSubcategories.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-4 text-sm text-[var(--muted)]">
+                        Aucune sous-catégorie vêtements.
+                      </td>
+                    </tr>
+                  ) : (
+                    modeSubcategories.map((subcategory) => (
+                      <tr key={subcategory.name} className="border-b border-[var(--border)] last:border-0">
+                        <td className="p-3 text-sm font-medium text-[var(--foreground)]">
+                          {subcategory.name}
+                        </td>
+                        <td className="p-3 text-sm text-[var(--muted)]">{subcategory.count}</td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={modeSubcategoryRenameDrafts[subcategory.name] ?? subcategory.name}
+                              onChange={(e) =>
+                                setModeSubcategoryRenameDrafts((prev) => ({
+                                  ...prev,
+                                  [subcategory.name]: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--foreground)]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRenameModeSubcategory(subcategory)}
+                              disabled={renamingModeSubcategory === subcategory.name}
+                              className="rounded border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50"
+                            >
+                              {renamingModeSubcategory === subcategory.name ? "…" : "Renommer"}
+                            </button>
+                          </div>
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteModeSubcategory(subcategory)}
+                            disabled={deletingModeSubcategory === subcategory.name}
+                            className="rounded border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--accent-deep)] transition hover:border-[var(--accent-deep)] disabled:opacity-50"
+                          >
+                            {deletingModeSubcategory === subcategory.name ? "…" : "Supprimer"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </section>
       )}
 
@@ -978,7 +1218,7 @@ export default function AdminBoutique() {
                       className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--foreground)]"
                     >
                       <option value="">Choisir</option>
-                      {MODE_CLOTHING_SUBCATEGORIES.map((subCategoryOption) => (
+                      {modeSubcategoryOptions.map((subCategoryOption) => (
                         <option key={subCategoryOption} value={subCategoryOption}>
                           {subCategoryOption}
                         </option>

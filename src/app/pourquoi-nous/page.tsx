@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getProducts } from "@/lib/products-server";
-import { mapModeCategory, mapUniverseCategory } from "@/lib/universe-categories";
+import { getModeSubcategories } from "@/lib/categories-data";
+import { mapUniverseCategory, resolveModeDisplayCategory } from "@/lib/universe-categories";
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.vercel.app").replace(/\/+$/, "");
 
@@ -107,13 +108,14 @@ export const metadata: Metadata = {
 
 export default async function PourquoiNousPage() {
   const products = await getProducts();
+  const modeSubcategories = await getModeSubcategories();
   const mappedCategoryCounts = new Map<string, number>();
 
   for (const product of products) {
     const category =
       product.universe === "tout"
         ? mapUniverseCategory(product.category)
-        : mapModeCategory(product.category);
+        : resolveModeDisplayCategory(product.category, modeSubcategories).category;
     mappedCategoryCounts.set(category, (mappedCategoryCounts.get(category) ?? 0) + 1);
   }
 
