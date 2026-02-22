@@ -6,7 +6,7 @@ export default function Footer() {
     <footer className="mt-auto border-t border-white/10 bg-[var(--surface-dark)] py-8 text-white/75">
       <div className="mx-auto max-w-7xl px-4 text-center text-sm sm:px-6">
         <p className="text-xs uppercase tracking-[0.2em] text-white/55">
-          © {new Date().getFullYear()} Luxury Market · Livraison internationale
+          © {new Date().getFullYear()} Luxury Market · Mode et univers · Livraison internationale
         </p>
         <p className="mt-3">
           <a

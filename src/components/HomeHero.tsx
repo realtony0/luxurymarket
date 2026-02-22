@@ -35,7 +35,7 @@ export default function HomeHero() {
           className={`mt-3 text-[var(--muted)] sm:text-lg ${motionClass}`}
           style={delay(1)}
         >
-          Mode et maison. Livraison internationale.
+          Mode et univers. Livraison internationale.
         </p>
         <div className={`mt-10 flex flex-col items-center gap-3 ${motionClass}`} style={delay(2)}>
           <Link

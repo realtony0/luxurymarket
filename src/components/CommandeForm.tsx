@@ -6,7 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { useCart } from "@/components/cart/CartProvider";
 import { formatPrice } from "@/lib/products";
 
-const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "luxurymarket1@gmail.com";
+const DEFAULT_WHATSAPP_NUMBER = "221773249642";
+const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || DEFAULT_WHATSAPP_NUMBER).replace(/\D+/g, "");
 const phoneRegex = /^[\d\s+.-]{8,20}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,8 +18,8 @@ type FormErrors = {
   message?: string;
 };
 
-function buildMailtoUrl(subject: string, body: string): string {
-  return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+function buildWhatsAppUrl(message: string): string {
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }
 
 export default function CommandeForm() {
@@ -49,8 +50,7 @@ export default function CommandeForm() {
     if (!nom.trim()) next.nom = "Le nom est requis.";
     else if (nom.trim().length < 2) next.nom = "Au moins 2 caractères.";
 
-    if (!email.trim()) next.email = "L'email est requis.";
-    else if (!emailRegex.test(email.trim())) next.email = "Email invalide.";
+    if (email.trim() && !emailRegex.test(email.trim())) next.email = "Email invalide.";
 
     if (telephone.trim() && !phoneRegex.test(telephone.trim())) {
       next.telephone = "Numéro invalide.";
@@ -70,14 +70,13 @@ export default function CommandeForm() {
 
     setLoading(true);
 
-    const subject = `Nouvelle demande de commande - ${nom.trim()}`;
     const lines = [
-      "Bonjour,",
+      "Bonjour Luxury Market,",
       "",
       "Je souhaite passer une commande.",
       "",
       `Nom : ${nom.trim()}`,
-      `Email : ${email.trim()}`,
+      `Email : ${email.trim() || "Non renseigné"}`,
       `Téléphone : ${telephone.trim() || "Non renseigné"}`,
     ];
 
@@ -93,8 +92,11 @@ export default function CommandeForm() {
 
     lines.push("", "Message :", message.trim());
 
-    const url = buildMailtoUrl(subject, lines.join("\n"));
-    window.location.href = url;
+    const url = buildWhatsAppUrl(lines.join("\n"));
+    const popup = window.open(url, "_blank", "noopener,noreferrer");
+    if (!popup) {
+      window.location.href = url;
+    }
 
     setLoading(false);
     setSent(true);
@@ -107,8 +109,9 @@ export default function CommandeForm() {
           Passer commande
         </h1>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Remplissez ce formulaire. Votre messagerie s&apos;ouvrira pour envoyer la demande.
+          Remplissez ce formulaire. WhatsApp s&apos;ouvrira pour envoyer la commande.
         </p>
+        <p className="mt-1 text-xs text-[var(--muted)]">Canal de commande: WhatsApp</p>
 
         {hasCartItems && (
           <div className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--background)]/80 p-4">
@@ -163,14 +166,13 @@ export default function CommandeForm() {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-[var(--foreground)]">
-                Email *
+                Email
               </label>
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
                 aria-invalid={errors.email ? "true" : "false"}
                 aria-describedby={errors.email ? "email-error" : undefined}
                 className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
@@ -247,7 +249,7 @@ export default function CommandeForm() {
 
           {sent && (
             <p className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-              Votre demande est prête. Envoyez le message depuis votre messagerie.
+              Votre demande est prête. Envoyez le message sur WhatsApp.
             </p>
           )}
 
@@ -256,7 +258,7 @@ export default function CommandeForm() {
             disabled={loading}
             className="h-11 w-full rounded-lg bg-[var(--accent)] px-4 text-sm font-semibold text-white transition hover:bg-[var(--accent-deep)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 disabled:opacity-70 sm:h-auto sm:py-3"
           >
-            {loading ? "Préparation…" : "Envoyer la demande"}
+            {loading ? "Ouverture WhatsApp…" : "Envoyer sur WhatsApp"}
           </button>
         </form>
       </div>

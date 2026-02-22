@@ -8,9 +8,8 @@ const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.verc
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: "Luxury Market — Mode & Maison", template: "%s | Luxury Market" },
-  description:
-    "Mode premium et tout pour la maison : vêtements, électroménager, décoration. Livraison internationale.",
+  title: { default: "Luxury Market — Mode & Univers", template: "%s | Luxury Market" },
+  description: "Mode et univers. Livraison internationale.",
   applicationName: "Luxury Market",
   alternates: {
     canonical: "/",
@@ -20,8 +19,8 @@ export const metadata: Metadata = {
     follow: true,
   },
   openGraph: {
-    title: "Luxury Market — Mode & Maison",
-    description: "Mode et maison. Livraison internationale.",
+    title: "Luxury Market — Mode & Univers",
+    description: "Mode et univers. Livraison internationale.",
     type: "website",
     url: "/",
     siteName: "Luxury Market",
@@ -31,14 +30,14 @@ export const metadata: Metadata = {
         url: "/IMG_5635.JPG",
         width: 1200,
         height: 630,
-        alt: "Luxury Market - Mode et maison",
+        alt: "Luxury Market - Mode et univers",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Luxury Market — Mode & Maison",
-    description: "Mode et maison. Livraison internationale.",
+    title: "Luxury Market — Mode & Univers",
+    description: "Mode et univers. Livraison internationale.",
     images: ["/IMG_5635.JPG"],
   },
   verification: {

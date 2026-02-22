@@ -6,7 +6,7 @@ const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.verc
 
 export const metadata: Metadata = {
   title: "Accueil",
-  description: "Luxury Market - Mode et maison. Livraison internationale.",
+  description: "Luxury Market - Mode et univers. Livraison internationale.",
   alternates: {
     canonical: "/",
   },
@@ -65,7 +65,7 @@ export default function Home() {
           MARKET
         </h1>
         <p className="mt-4 text-xs font-medium uppercase tracking-[0.16em] text-white/85 sm:mt-5 sm:text-base sm:tracking-[0.2em]">
-          Mode et maison. Livraison internationale.
+          Mode et univers. Livraison internationale.
         </p>
 
         <div className="mx-auto mt-8 flex w-full max-w-sm flex-col items-center gap-3 sm:mt-10 sm:max-w-none sm:flex-row sm:justify-center sm:gap-4">
