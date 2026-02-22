@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Product } from "@/lib/products";
@@ -119,8 +120,14 @@ export default function AddToCartActions({ product, backHref, initialColor, onCo
           <div className="mt-2 grid grid-cols-4 gap-2">
             {selectedColorImages.slice(0, 8).map((image, index) => (
               <div key={`${image}-${index}`} className="relative aspect-square overflow-hidden rounded-lg border border-[var(--border)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={image} alt="" className="h-full w-full object-cover" />
+                <Image
+                  src={image}
+                  alt=""
+                  fill
+                  unoptimized
+                  className="object-cover"
+                  sizes="(max-width: 640px) 22vw, 96px"
+                />
               </div>
             ))}
           </div>

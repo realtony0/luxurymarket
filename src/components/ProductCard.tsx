@@ -2,34 +2,19 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useRef, useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Product } from "@/lib/products";
 import { formatPrice } from "@/lib/products";
 import { useCart } from "@/components/cart/CartProvider";
 import { colorToSwatch, parseColorList } from "@/lib/product-options";
 
-export default function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
-  const ref = useRef<HTMLElement>(null);
+export default function ProductCard({ product }: { product: Product }) {
   const timeoutRef = useRef<number | null>(null);
-  const [visible, setVisible] = useState(false);
   const [added, setAdded] = useState(false);
   const { addItem } = useCart();
   const colorOptions = parseColorList(product.color);
   const primaryColor = colorOptions[0];
   const primaryImage = product.images?.[0] || product.image;
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) setVisible(true);
-      },
-      { threshold: 0.1, rootMargin: "0px 0px 40px 0px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -52,11 +37,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
   }
 
   return (
-    <article
-      ref={ref}
-      className={`transition-all duration-500 ${visible ? "translate-y-0 opacity-100" : "translate-y-6 opacity-0"}`}
-      style={visible ? { transitionDelay: `${Math.min(index * 50, 300)}ms` } : undefined}
-    >
+    <article>
       <Link href={`/products/${product.slug}`} className="group block">
         <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-2xl">
           <div className="relative aspect-square overflow-hidden bg-[var(--muted)]/10">
@@ -64,6 +45,7 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
               src={primaryImage}
               alt={product.name}
               fill
+              unoptimized
               className="object-cover transition duration-700 group-hover:scale-110"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />

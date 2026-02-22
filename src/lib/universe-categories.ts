@@ -7,17 +7,20 @@ export const UNIVERSE_CATEGORIES = [
 
 export const MODE_CATEGORIES = [
   "Vêtements",
+  "Chaussures",
+  "Maroquinerie",
+  "Accessoires",
   "V/women",
+  "Mode femme",
+] as const;
+
+export const MODE_CLOTHING_SUBCATEGORIES = [
   "Tshirt",
   "Pantalon",
   "Chemise",
   "Lacoste",
   "Set",
   "Pull",
-  "Chaussures",
-  "Maroquinerie",
-  "Accessoires",
-  "Mode femme",
 ] as const;
 
 function normalize(value: string): string {
@@ -28,39 +31,10 @@ function normalize(value: string): string {
     .trim();
 }
 
-export function mapUniverseCategory(rawCategory: string): (typeof UNIVERSE_CATEGORIES)[number] {
+type ModeClothingSubcategory = (typeof MODE_CLOTHING_SUBCATEGORIES)[number];
+
+function detectModeClothingSubcategory(rawCategory: string): ModeClothingSubcategory | null {
   const category = normalize(rawCategory);
-
-  if (category.includes("electromenager") || category.includes("electro menager")) {
-    return "Electromenager";
-  }
-
-  if (category.includes("luminaire") || category.includes("electronique")) {
-    return "Electronique";
-  }
-
-  if (
-    category.includes("decoration") ||
-    category.includes("cuisine") ||
-    category.includes("accessoire maison")
-  ) {
-    return "Accessoires maison";
-  }
-
-  return "Accessoires & divers";
-}
-
-export function mapModeCategory(rawCategory: string): (typeof MODE_CATEGORIES)[number] {
-  const category = normalize(rawCategory);
-
-  if (
-    category.includes("v/women") ||
-    category.includes("v women") ||
-    category.includes("v-women") ||
-    category.includes("vwomen")
-  ) {
-    return "V/women";
-  }
 
   if (
     category.includes("tshirt") ||
@@ -97,8 +71,48 @@ export function mapModeCategory(rawCategory: string): (typeof MODE_CATEGORIES)[n
     return "Pull";
   }
 
+  return null;
+}
+
+export function mapUniverseCategory(rawCategory: string): (typeof UNIVERSE_CATEGORIES)[number] {
+  const category = normalize(rawCategory);
+
+  if (category.includes("electromenager") || category.includes("electro menager")) {
+    return "Electromenager";
+  }
+
+  if (category.includes("luminaire") || category.includes("electronique")) {
+    return "Electronique";
+  }
+
+  if (
+    category.includes("decoration") ||
+    category.includes("cuisine") ||
+    category.includes("accessoire maison")
+  ) {
+    return "Accessoires maison";
+  }
+
+  return "Accessoires & divers";
+}
+
+export function mapModeCategory(rawCategory: string): (typeof MODE_CATEGORIES)[number] {
+  const category = normalize(rawCategory);
+  const clothingSubcategory = detectModeClothingSubcategory(rawCategory);
+
+  if (clothingSubcategory) return "Vêtements";
+
   if (category.includes("vetement")) {
     return "Vêtements";
+  }
+
+  if (
+    category.includes("v/women") ||
+    category.includes("v women") ||
+    category.includes("v-women") ||
+    category.includes("vwomen")
+  ) {
+    return "V/women";
   }
 
   if (category.includes("chaussure")) {
@@ -114,4 +128,29 @@ export function mapModeCategory(rawCategory: string): (typeof MODE_CATEGORIES)[n
   }
 
   return "Accessoires";
+}
+
+export function mapModeSubcategory(rawCategory: string): ModeClothingSubcategory | null {
+  return detectModeClothingSubcategory(rawCategory);
+}
+
+export function normalizeModeCategoryInput(rawCategory: string): string {
+  const category = normalize(rawCategory);
+  const clothingSubcategory = detectModeClothingSubcategory(rawCategory);
+  if (clothingSubcategory) return clothingSubcategory;
+
+  if (category.includes("vetement")) return "Vêtements";
+  if (category.includes("chaussure")) return "Chaussures";
+  if (category.includes("maroquinerie")) return "Maroquinerie";
+  if (category.includes("mode femme") || category.includes("modd femme")) return "Mode femme";
+  if (
+    category.includes("v/women") ||
+    category.includes("v women") ||
+    category.includes("v-women") ||
+    category.includes("vwomen")
+  ) {
+    return "V/women";
+  }
+
+  return rawCategory.trim();
 }

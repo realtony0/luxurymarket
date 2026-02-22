@@ -3,14 +3,14 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getProductBySlug, getProducts } from "@/lib/products-server";
 import { formatPrice } from "@/lib/products";
-import { mapModeCategory, mapUniverseCategory } from "@/lib/universe-categories";
+import { mapModeCategory, mapModeSubcategory, mapUniverseCategory } from "@/lib/universe-categories";
 import AddToCartActions from "@/components/AddToCartActions";
 import ProductGallery from "@/components/ProductGallery";
 
 type Props = { params: Promise<{ slug: string }> };
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.vercel.app").replace(/\/+$/, "");
 
-export const revalidate = 120;
+export const revalidate = 3600;
 
 export async function generateStaticParams() {
   const products = await getProducts();
@@ -58,6 +58,8 @@ export default async function ProductPage({ params }: Props) {
   const displayedCategory = product.universe === "tout"
     ? mapUniverseCategory(product.category)
     : mapModeCategory(product.category);
+  const displayedSubCategory =
+    product.universe === "mode" ? mapModeSubcategory(product.category) : null;
   const gallery = Array.isArray(product.images) && product.images.length > 0
     ? product.images
     : [product.image];
@@ -77,6 +79,7 @@ export default async function ProductPage({ params }: Props) {
           <div>
             <p className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
               {displayedCategory}
+              {displayedSubCategory ? ` · ${displayedSubCategory}` : ""}
             </p>
             <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl md:text-4xl">
               {product.name}

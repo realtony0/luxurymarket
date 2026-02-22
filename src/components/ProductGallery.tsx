@@ -31,6 +31,7 @@ export default function ProductGallery({ name, images }: Props) {
             src={activeImage}
             alt={name}
             fill
+            unoptimized
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 50vw"
             priority
@@ -58,6 +59,7 @@ export default function ProductGallery({ name, images }: Props) {
                   src={image}
                   alt=""
                   fill
+                  unoptimized
                   className="object-cover"
                   sizes="96px"
                 />

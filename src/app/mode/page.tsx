@@ -1,7 +1,12 @@
 import Image from "next/image";
 import type { Metadata } from "next";
 import { getProductsByUniverse } from "@/lib/products-server";
-import { mapModeCategory, MODE_CATEGORIES } from "@/lib/universe-categories";
+import {
+  mapModeCategory,
+  mapModeSubcategory,
+  MODE_CATEGORIES,
+  MODE_CLOTHING_SUBCATEGORIES,
+} from "@/lib/universe-categories";
 import ProductCard from "@/components/ProductCard";
 
 export const metadata: Metadata = {
@@ -12,7 +17,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 120;
+export const revalidate = 3600;
 
 function slug(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/\s+/g, "-");
@@ -23,6 +28,7 @@ export default async function ModePage() {
   const mappedProducts = products.map((product) => ({
     ...product,
     category: mapModeCategory(product.category),
+    subCategory: mapModeSubcategory(product.category),
   }));
 
   const categories = MODE_CATEGORIES.filter((category) =>
@@ -79,11 +85,48 @@ export default async function ModePage() {
                 {category}
               </h2>
             </header>
-            <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 md:gap-6 lg:grid-cols-4 lg:gap-8">
-              {list.map((product, index) => (
-                <ProductCard key={product.id} product={product} index={index} />
-              ))}
-            </div>
+
+            {category === "Vêtements" ? (
+              <div className="space-y-8">
+                {MODE_CLOTHING_SUBCATEGORIES.filter((subCategory) =>
+                  list.some((product) => product.subCategory === subCategory)
+                ).map((subCategory) => (
+                  <section key={subCategory}>
+                    <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+                      {subCategory}
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 md:gap-6 lg:grid-cols-4 lg:gap-8">
+                      {list
+                        .filter((product) => product.subCategory === subCategory)
+                        .map((product) => (
+                          <ProductCard key={product.id} product={product} />
+                        ))}
+                    </div>
+                  </section>
+                ))}
+
+                {list.some((product) => !product.subCategory) && (
+                  <section>
+                    <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+                      Autres vetements
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 md:gap-6 lg:grid-cols-4 lg:gap-8">
+                      {list
+                        .filter((product) => !product.subCategory)
+                        .map((product) => (
+                          <ProductCard key={product.id} product={product} />
+                        ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 md:gap-6 lg:grid-cols-4 lg:gap-8">
+                {list.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            )}
           </section>
         ))}
       </div>

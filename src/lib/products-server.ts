@@ -2,17 +2,11 @@ import { unstable_cache } from "next/cache";
 import * as data from "./products-data";
 import type { Product } from "./products";
 
+const PRODUCTS_REVALIDATE_SECONDS = 3600;
+
 const getProductsCached = unstable_cache(async (): Promise<Product[]> => {
   return data.getProducts();
-}, ["products:all"], { revalidate: 120, tags: ["products"] });
-
-const getProductBySlugCached = unstable_cache(
-  async (slug: string): Promise<Product | undefined> => {
-    return data.getProductBySlug(slug);
-  },
-  ["products:by-slug"],
-  { revalidate: 120, tags: ["products"] }
-);
+}, ["products:all"], { revalidate: PRODUCTS_REVALIDATE_SECONDS, tags: ["products"] });
 
 export async function getProducts(): Promise<Product[]> {
   return getProductsCached();
@@ -24,5 +18,6 @@ export async function getProductsByUniverse(universe: "mode" | "tout"): Promise<
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
-  return getProductBySlugCached(slug);
+  const products = await getProductsCached();
+  return products.find((product) => product.slug === slug);
 }

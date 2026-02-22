@@ -2,7 +2,11 @@ import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import { getDb, ensureTable } from "./db";
 import { countProductsByCategory, getProducts, replaceCategory } from "./products-data";
-import { MODE_CATEGORIES, UNIVERSE_CATEGORIES } from "./universe-categories";
+import {
+  MODE_CATEGORIES,
+  MODE_CLOTHING_SUBCATEGORIES,
+  UNIVERSE_CATEGORIES,
+} from "./universe-categories";
 
 const CATEGORIES_PATH = path.join(process.cwd(), "data", "categories.json");
 
@@ -76,7 +80,13 @@ async function removeRegisteredCategory(name: string): Promise<void> {
 export async function getCategories(): Promise<string[]> {
   const [registered, products] = await Promise.all([getRegisteredCategories(), getProducts()]);
   const productCategories = products.map((p) => p.category);
-  return uniqSorted([...registered, ...productCategories, ...MODE_CATEGORIES, ...UNIVERSE_CATEGORIES]);
+  return uniqSorted([
+    ...registered,
+    ...productCategories,
+    ...MODE_CATEGORIES,
+    ...MODE_CLOTHING_SUBCATEGORIES,
+    ...UNIVERSE_CATEGORIES,
+  ]);
 }
 
 export async function getCategoryInfos(): Promise<CategoryInfo[]> {

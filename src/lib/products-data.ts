@@ -5,6 +5,16 @@ import { getDb, ensureTable } from "./db";
 import { normalizeColorImagesMap } from "./product-options";
 
 const DATA_PATH = path.join(process.cwd(), "data", "products.json");
+const PRODUCTS_CACHE_TTL_MS = process.env.NODE_ENV === "development" ? 15_000 : 60_000;
+const DB_RETRY_DELAY_MS = 30_000;
+
+type ProductsCache = {
+  expiresAt: number;
+  products: Product[];
+};
+
+let productsCache: ProductsCache | null = null;
+let dbUnavailableUntil = 0;
 
 type DbRow = {
   id: string;
@@ -84,6 +94,45 @@ function normalizeProduct(product: Product): Product {
   };
 }
 
+function cloneProduct(product: Product): Product {
+  return {
+    ...product,
+    ...(product.images ? { images: [...product.images] } : {}),
+    ...(product.sizes ? { sizes: [...product.sizes] } : {}),
+    ...(product.colorImages
+      ? {
+          colorImages: Object.fromEntries(
+            Object.entries(product.colorImages).map(([color, images]) => [color, [...images]])
+          ),
+        }
+      : {}),
+  };
+}
+
+function cloneProducts(products: Product[]): Product[] {
+  return products.map(cloneProduct);
+}
+
+function getProductsFromCache(): Product[] | null {
+  if (!productsCache) return null;
+  if (Date.now() > productsCache.expiresAt) {
+    productsCache = null;
+    return null;
+  }
+  return cloneProducts(productsCache.products);
+}
+
+function setProductsCache(products: Product[]) {
+  productsCache = {
+    expiresAt: Date.now() + PRODUCTS_CACHE_TTL_MS,
+    products: cloneProducts(products.map(normalizeProduct)),
+  };
+}
+
+export function invalidateProductsCache() {
+  productsCache = null;
+}
+
 async function fromFile(): Promise<Product[]> {
   try {
     const raw = await readFile(DATA_PATH, "utf-8");
@@ -95,36 +144,35 @@ async function fromFile(): Promise<Product[]> {
 }
 
 export async function getProducts(): Promise<Product[]> {
+  const cached = getProductsFromCache();
+  if (cached) return cached;
+
   const sql = getDb();
-  if (sql) {
-    await ensureTable();
-    const rows = await sql`SELECT * FROM products ORDER BY id`;
-    return (rows as DbRow[]).map(rowToProduct);
+  if (sql && Date.now() >= dbUnavailableUntil) {
+    try {
+      await ensureTable();
+      const rows = await sql`SELECT * FROM products ORDER BY id`;
+      const products = (rows as DbRow[]).map(rowToProduct);
+      setProductsCache(products);
+      dbUnavailableUntil = 0;
+      return cloneProducts(products);
+    } catch {
+      dbUnavailableUntil = Date.now() + DB_RETRY_DELAY_MS;
+    }
   }
-  return fromFile();
+
+  const products = await fromFile();
+  setProductsCache(products);
+  return cloneProducts(products);
 }
 
 export async function getProductById(id: string): Promise<Product | undefined> {
-  const sql = getDb();
-  if (sql) {
-    await ensureTable();
-    const rows = await sql`SELECT * FROM products WHERE id = ${id}`;
-    const row = (rows as DbRow[])[0];
-    return row ? rowToProduct(row) : undefined;
-  }
-  const products = await fromFile();
+  const products = await getProducts();
   return products.find((p) => p.id === id);
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
-  const sql = getDb();
-  if (sql) {
-    await ensureTable();
-    const rows = await sql`SELECT * FROM products WHERE slug = ${slug}`;
-    const row = (rows as DbRow[])[0];
-    return row ? rowToProduct(row) : undefined;
-  }
-  const products = await fromFile();
+  const products = await getProducts();
   return products.find((p) => p.slug === slug);
 }
 
@@ -171,6 +219,7 @@ export async function addProduct(input: Omit<Product, "id" | "slug">): Promise<P
       INSERT INTO products (id, slug, name, price, category, universe, image, images, description, color, color_images, sizes)
       VALUES (${id}, ${slug}, ${productInput.name}, ${productInput.price}, ${productInput.category}, ${productInput.universe}, ${productInput.image}, ${JSON.stringify(productInput.images)}, ${productInput.description}, ${productInput.color ?? null}, ${JSON.stringify(productInput.colorImages ?? {})}, ${productInput.sizes ? JSON.stringify(productInput.sizes) : null})
     `;
+    invalidateProductsCache();
     return normalizeProduct({ ...productInput, id, slug });
   }
   const products = await fromFile();
@@ -187,6 +236,7 @@ export async function addProduct(input: Omit<Product, "id" | "slug">): Promise<P
   };
   products.push(product);
   await writeFile(DATA_PATH, JSON.stringify(products, null, 2), "utf-8");
+  invalidateProductsCache();
   return normalizeProduct(product);
 }
 
@@ -227,6 +277,7 @@ export async function updateProduct(id: string, input: Partial<Omit<Product, "id
         sizes = ${updated.sizes ? JSON.stringify(updated.sizes) : null}
       WHERE id = ${id}
     `;
+    invalidateProductsCache();
     return normalizeProduct(updated);
   }
   const products = await fromFile();
@@ -249,6 +300,7 @@ export async function updateProduct(id: string, input: Partial<Omit<Product, "id
   }
   products[index] = normalizeProduct(updated);
   await writeFile(DATA_PATH, JSON.stringify(products, null, 2), "utf-8");
+  invalidateProductsCache();
   return normalizeProduct(updated);
 }
 
@@ -276,6 +328,7 @@ export async function replaceCategory(oldCategory: string, newCategory: string):
       WHERE category = ${oldCategory}
       RETURNING id
     `;
+    invalidateProductsCache();
     return Array.isArray(updated) ? updated.length : 0;
   }
 
@@ -289,6 +342,7 @@ export async function replaceCategory(oldCategory: string, newCategory: string):
 
   if (count > 0) {
     await writeFile(DATA_PATH, JSON.stringify(next, null, 2), "utf-8");
+    invalidateProductsCache();
   }
   return count;
 }
@@ -298,11 +352,15 @@ export async function deleteProduct(id: string): Promise<boolean> {
   if (sql) {
     await ensureTable();
     const deleted = await sql`DELETE FROM products WHERE id = ${id} RETURNING id`;
+    if (Array.isArray(deleted) && deleted.length > 0) {
+      invalidateProductsCache();
+    }
     return Array.isArray(deleted) && deleted.length > 0;
   }
   const products = await fromFile();
   const filtered = products.filter((p) => p.id !== id);
   if (filtered.length === products.length) return false;
   await writeFile(DATA_PATH, JSON.stringify(filtered, null, 2), "utf-8");
+  invalidateProductsCache();
   return true;
 }

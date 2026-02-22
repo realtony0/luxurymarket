@@ -1,17 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
+import sharp from "sharp";
 import { isAdmin } from "@/lib/auth-admin";
 
 const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8MB
+const MAX_IMAGE_SIDE = 1800;
+const WEBP_QUALITY = 82;
 
-function sanitizeExt(fileName: string, mimeType: string): string {
-  const fromName = fileName.split(".").pop()?.toLowerCase();
-  if (fromName && /^[a-z0-9]{2,5}$/.test(fromName)) return fromName;
+async function optimizeImage(file: File): Promise<Buffer> {
+  const input = Buffer.from(await file.arrayBuffer());
 
-  if (mimeType === "image/png") return "png";
-  if (mimeType === "image/webp") return "webp";
-  if (mimeType === "image/avif") return "avif";
-  return "jpg";
+  return sharp(input, {
+    failOn: "none",
+    limitInputPixels: 40_000_000,
+  })
+    .rotate()
+    .resize(MAX_IMAGE_SIDE, MAX_IMAGE_SIDE, {
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: WEBP_QUALITY, effort: 4 })
+    .toBuffer();
 }
 
 export async function POST(request: NextRequest) {
@@ -48,11 +57,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const ext = sanitizeExt(file.name, file.type);
-    const fileName = `products/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const optimized = await optimizeImage(file);
+    const fileName = `products/${Date.now()}-${crypto.randomUUID()}.webp`;
 
-    const blob = await put(fileName, file, {
+    const blob = await put(fileName, optimized, {
       access: "public",
+      contentType: "image/webp",
       token: process.env.BLOB_READ_WRITE_TOKEN,
       addRandomSuffix: false,
     });

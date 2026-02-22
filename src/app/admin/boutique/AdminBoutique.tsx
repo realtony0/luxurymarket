@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Product } from "@/lib/products";
 import { formatPrice } from "@/lib/products";
 import {
-  mapModeCategory,
+  normalizeModeCategoryInput,
   mapUniverseCategory,
 } from "@/lib/universe-categories";
 import {
@@ -140,7 +140,7 @@ function toPayload(form: ProductFormState): Omit<Product, "id" | "slug"> {
   const payload: Omit<Product, "id" | "slug"> = {
     name,
     price,
-    category: form.universe === "tout" ? mapUniverseCategory(category) : mapModeCategory(category),
+    category: form.universe === "tout" ? mapUniverseCategory(category) : normalizeModeCategoryInput(category),
     universe: form.universe,
     image: images[0],
     images,

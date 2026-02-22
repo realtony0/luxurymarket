@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 120;
+export const revalidate = 3600;
 
 function slug(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/\s+/g, "-");
@@ -80,8 +80,8 @@ export default async function ToutPage() {
               </h2>
             </header>
             <div className="grid grid-cols-1 gap-4 min-[460px]:grid-cols-2 md:gap-6 lg:grid-cols-4 lg:gap-8">
-              {list.map((product, index) => (
-                <ProductCard key={product.id} product={product} index={index} />
+              {list.map((product) => (
+                <ProductCard key={product.id} product={product} />
               ))}
             </div>
           </section>
