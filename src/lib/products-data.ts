@@ -2,6 +2,7 @@ import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import { normalizeProductImages, type Product } from "./products";
 import { getDb, ensureTable } from "./db";
+import { normalizeColorImagesMap } from "./product-options";
 
 const DATA_PATH = path.join(process.cwd(), "data", "products.json");
 
@@ -16,6 +17,7 @@ type DbRow = {
   images: unknown;
   description: string;
   color: string | null;
+  color_images: unknown;
   sizes: string[] | null;
 };
 
@@ -31,9 +33,26 @@ function parseDbArray(value: unknown): unknown[] {
   }
 }
 
+function parseDbObject(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== "string") return {};
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 function rowToProduct(row: DbRow): Product {
   const sizes = Array.isArray(row.sizes) ? row.sizes : null;
   const images = normalizeProductImages(parseDbArray(row.images), row.image);
+  const colorImages = normalizeColorImagesMap(parseDbObject(row.color_images));
   const image = images[0] || row.image;
 
   return {
@@ -47,18 +66,21 @@ function rowToProduct(row: DbRow): Product {
     ...(images.length > 0 && { images }),
     description: row.description,
     ...(row.color && { color: row.color }),
+    ...(Object.keys(colorImages).length > 0 && { colorImages }),
     ...(sizes && sizes.length > 0 && { sizes: sizes.map(String) }),
   };
 }
 
 function normalizeProduct(product: Product): Product {
   const images = normalizeProductImages(product.images, product.image);
+  const colorImages = normalizeColorImagesMap(product.colorImages);
   const image = images[0] || product.image;
 
   return {
     ...product,
     image,
     ...(images.length > 0 && { images }),
+    ...(Object.keys(colorImages).length > 0 && { colorImages }),
   };
 }
 
@@ -121,6 +143,7 @@ function generateId(): string {
 
 export async function addProduct(input: Omit<Product, "id" | "slug">): Promise<Product> {
   const normalizedImages = normalizeProductImages(input.images, input.image);
+  const normalizedColorImages = normalizeColorImagesMap(input.colorImages);
   const primaryImage = normalizedImages[0];
   if (!primaryImage) {
     throw new Error("Au moins une image produit est requise.");
@@ -130,6 +153,7 @@ export async function addProduct(input: Omit<Product, "id" | "slug">): Promise<P
     ...input,
     image: primaryImage,
     ...(normalizedImages.length > 0 && { images: normalizedImages }),
+    ...(Object.keys(normalizedColorImages).length > 0 && { colorImages: normalizedColorImages }),
   };
 
   const sql = getDb();
@@ -144,10 +168,10 @@ export async function addProduct(input: Omit<Product, "id" | "slug">): Promise<P
     }
     const id = generateId();
     await sql`
-      INSERT INTO products (id, slug, name, price, category, universe, image, images, description, color, sizes)
-      VALUES (${id}, ${slug}, ${productInput.name}, ${productInput.price}, ${productInput.category}, ${productInput.universe}, ${productInput.image}, ${JSON.stringify(productInput.images)}, ${productInput.description}, ${productInput.color ?? null}, ${productInput.sizes ? JSON.stringify(productInput.sizes) : null})
+      INSERT INTO products (id, slug, name, price, category, universe, image, images, description, color, color_images, sizes)
+      VALUES (${id}, ${slug}, ${productInput.name}, ${productInput.price}, ${productInput.category}, ${productInput.universe}, ${productInput.image}, ${JSON.stringify(productInput.images)}, ${productInput.description}, ${productInput.color ?? null}, ${JSON.stringify(productInput.colorImages ?? {})}, ${productInput.sizes ? JSON.stringify(productInput.sizes) : null})
     `;
-    return { ...productInput, id, slug };
+    return normalizeProduct({ ...productInput, id, slug });
   }
   const products = await fromFile();
   let slug = slugify(productInput.name);
@@ -174,8 +198,10 @@ export async function updateProduct(id: string, input: Partial<Omit<Product, "id
     if (!existing) return null;
     const updated = { ...existing, ...input };
     const normalizedImages = normalizeProductImages(updated.images, updated.image);
+    const normalizedColorImages = normalizeColorImagesMap(updated.colorImages);
     updated.image = normalizedImages[0] || "";
     updated.images = normalizedImages;
+    updated.colorImages = normalizedColorImages;
 
     if (input.name && input.name !== existing.name) {
       updated.slug = slugify(input.name);
@@ -197,6 +223,7 @@ export async function updateProduct(id: string, input: Partial<Omit<Product, "id
         images = ${JSON.stringify(updated.images)},
         description = ${updated.description},
         color = ${updated.color ?? null},
+        color_images = ${JSON.stringify(updated.colorImages ?? {})},
         sizes = ${updated.sizes ? JSON.stringify(updated.sizes) : null}
       WHERE id = ${id}
     `;
@@ -207,8 +234,10 @@ export async function updateProduct(id: string, input: Partial<Omit<Product, "id
   if (index === -1) return null;
   const updated = { ...products[index], ...input };
   const normalizedImages = normalizeProductImages(updated.images, updated.image);
+  const normalizedColorImages = normalizeColorImagesMap(updated.colorImages);
   updated.image = normalizedImages[0] || "";
   updated.images = normalizedImages;
+  updated.colorImages = normalizedColorImages;
 
   if (input.name && input.name !== products[index].name) {
     updated.slug = slugify(input.name);

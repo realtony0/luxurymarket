@@ -4,40 +4,57 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Product } from "@/lib/products";
 import { useCart } from "@/components/cart/CartProvider";
-import { colorToSwatch, parseColorList } from "@/lib/product-options";
+import { colorToSwatch, getColorImages, parseColorList } from "@/lib/product-options";
 
 type Props = {
   product: Pick<
     Product,
-    "id" | "slug" | "name" | "price" | "image" | "universe" | "category" | "color" | "sizes"
+    "id" | "slug" | "name" | "price" | "image" | "universe" | "category" | "color" | "colorImages" | "sizes"
   >;
   backHref: string;
+  initialColor?: string;
+  onColorChange?: (color: string) => void;
 };
 
-export default function AddToCartActions({ product, backHref }: Props) {
+export default function AddToCartActions({ product, backHref, initialColor, onColorChange }: Props) {
   const { addItem } = useCart();
   const timeoutRef = useRef<number | null>(null);
   const [justAdded, setJustAdded] = useState(false);
   const colorOptions = useMemo(() => parseColorList(product.color), [product.color]);
   const sizeOptions = useMemo(() => product.sizes || [], [product.sizes]);
-  const [selectedColor, setSelectedColor] = useState(() => colorOptions[0] || "");
+  const [selectedColor, setSelectedColor] = useState(() => {
+    if (initialColor && colorOptions.includes(initialColor)) return initialColor;
+    return colorOptions[0] || "";
+  });
   const [selectedSize, setSelectedSize] = useState(() => sizeOptions[0] || "");
+  const activeColor = colorOptions.includes(selectedColor) ? selectedColor : (colorOptions[0] || "");
+  const selectedColorImages = useMemo(
+    () => getColorImages(product.colorImages, activeColor),
+    [product.colorImages, activeColor]
+  );
+
+  useEffect(() => {
+    if (!onColorChange) return;
+    onColorChange(activeColor);
+  }, [onColorChange, activeColor]);
 
   function handleAddToCart() {
     if (sizeOptions.length > 0 && !selectedSize) return;
+    const cartImage = selectedColorImages[0] || product.image;
+
     addItem(
       {
         id: product.id,
         slug: product.slug,
         name: product.name,
         price: product.price,
-        image: product.image,
+        image: cartImage,
         universe: product.universe,
         category: product.category,
       },
       1,
       {
-        color: selectedColor || undefined,
+        color: activeColor || undefined,
         size: selectedSize || undefined,
       }
     );
@@ -69,7 +86,7 @@ export default function AddToCartActions({ product, backHref }: Props) {
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {colorOptions.map((color) => {
-              const isSelected = color === selectedColor;
+              const isSelected = color === activeColor;
               return (
                 <button
                   key={color}
@@ -90,6 +107,22 @@ export default function AddToCartActions({ product, backHref }: Props) {
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {selectedColorImages.length > 0 && (
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+            Photos {activeColor}
+          </p>
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            {selectedColorImages.slice(0, 8).map((image, index) => (
+              <div key={`${image}-${index}`} className="relative aspect-square overflow-hidden rounded-lg border border-[var(--border)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={image} alt="" className="h-full w-full object-cover" />
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -56,11 +56,13 @@ export async function ensureTable() {
         images JSONB,
         description TEXT NOT NULL,
         color TEXT,
+        color_images JSONB,
         sizes JSONB
       )
     `;
 
     await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB`;
+    await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS color_images JSONB`;
 
     await sql`
       UPDATE products

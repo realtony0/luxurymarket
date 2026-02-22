@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { isAdmin } from "@/lib/auth-admin";
 import { deleteProduct, updateProduct } from "@/lib/products-data";
 import { normalizeProductImages, type Product } from "@/lib/products";
+import { normalizeColorImagesMap } from "@/lib/product-options";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -41,6 +42,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
   if (body.description != null) input.description = String(body.description).trim();
   if (body.color != null) input.color = String(body.color).trim() || undefined;
+  if (body.colorImages != null) {
+    input.colorImages = normalizeColorImagesMap(body.colorImages);
+  }
   if (Array.isArray(body.sizes)) input.sizes = body.sizes.map((s: unknown) => String(s));
 
   const product = await updateProduct(id, input);

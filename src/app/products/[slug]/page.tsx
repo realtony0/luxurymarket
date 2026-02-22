@@ -99,6 +99,7 @@ export default async function ProductPage({ params }: Props) {
                 universe: product.universe,
                 category: product.category,
                 color: product.color,
+                colorImages: product.colorImages,
                 sizes: product.sizes,
               }}
             />

@@ -8,7 +8,14 @@ import {
   mapModeCategory,
   mapUniverseCategory,
 } from "@/lib/universe-categories";
-import { colorToSwatch, parseColorList } from "@/lib/product-options";
+import {
+  colorToSwatch,
+  getColorImages,
+  normalizeColorImagesMap,
+  normalizeColorName,
+  parseColorList,
+  type ColorImagesMap,
+} from "@/lib/product-options";
 
 type UniverseFilter = "all" | "mode" | "tout";
 type SortBy = "category" | "name" | "price-asc" | "price-desc";
@@ -23,6 +30,7 @@ type ProductFormState = {
   images: string[];
   description: string;
   color: string;
+  colorImages: ColorImagesMap;
   sizes: string;
 };
 
@@ -39,6 +47,7 @@ const EMPTY_FORM: ProductFormState = {
   images: [],
   description: "",
   color: "",
+  colorImages: {},
   sizes: "",
 };
 
@@ -60,12 +69,53 @@ const COMMON_SIZE_OPTIONS = [
   "44",
 ] as const;
 
+const COMMON_COLOR_OPTIONS = [
+  "Noir",
+  "Blanc",
+  "Gris",
+  "Rouge",
+  "Bleu",
+  "Bleu marine",
+  "Vert",
+  "Kaki",
+  "Beige",
+  "Marron",
+  "Rose",
+  "Orange",
+] as const;
+
 function toSizes(raw: string): string[] | undefined {
   const items = raw
     .split(/[\s,]+/)
     .map((s) => s.trim())
     .filter(Boolean);
   return items.length > 0 ? items : undefined;
+}
+
+function uniqueColors(values: string[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed) continue;
+    const key = normalizeColorName(trimmed);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    output.push(trimmed);
+  }
+
+  return output;
+}
+
+function uniqueImageUrls(values: string[]): string[] {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
 }
 
 function fromSizes(sizes?: string[]): string {
@@ -97,8 +147,16 @@ function toPayload(form: ProductFormState): Omit<Product, "id" | "slug"> {
     description,
   };
 
-  const color = form.color.trim();
-  if (color) payload.color = color;
+  const colors = uniqueColors(parseColorList(form.color));
+  payload.color = colors.join(", ");
+  const colorImages: ColorImagesMap = {};
+  for (const color of colors) {
+    const imagesForColor = uniqueImageUrls(getColorImages(form.colorImages, color));
+    if (imagesForColor.length > 0) {
+      colorImages[color] = imagesForColor;
+    }
+  }
+  payload.colorImages = colorImages;
 
   const sizes = toSizes(form.sizes);
   if (sizes) payload.sizes = sizes;
@@ -116,12 +174,14 @@ export default function AdminBoutique() {
   const [query, setQuery] = useState("");
   const [universeFilter, setUniverseFilter] = useState<UniverseFilter>("all");
   const [sortBy, setSortBy] = useState<SortBy>("category");
+  const [productsError, setProductsError] = useState("");
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<FormMode>("create");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState("");
+  const [colorDraft, setColorDraft] = useState("");
   const [imageUploading, setImageUploading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
   const [form, setForm] = useState<ProductFormState>(EMPTY_FORM);
@@ -154,6 +214,7 @@ export default function AdminBoutique() {
 
       setProducts(Array.isArray(productsData) ? productsData : []);
       setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      setProductsError("");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -173,6 +234,7 @@ export default function AdminBoutique() {
     setFormMode("create");
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setColorDraft("");
     setFormError("");
     setImageUploadError("");
     setImageUploading(false);
@@ -194,8 +256,10 @@ export default function AdminBoutique() {
       images,
       description: product.description,
       color: product.color || "",
+      colorImages: normalizeColorImagesMap(product.colorImages),
       sizes: fromSizes(product.sizes),
     });
+    setColorDraft("");
     setFormError("");
     setImageUploadError("");
     setImageUploading(false);
@@ -254,12 +318,25 @@ export default function AdminBoutique() {
 
   async function handleDelete(id: string) {
     if (!confirm("Supprimer ce produit ?")) return;
+    setProductsError("");
     setDeletingId(id);
+
     try {
-      const res = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        await refreshAll(true);
+      const res = await fetch(`/api/admin/products/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (res.status === 401) {
+        window.location.href = "/admin";
+        return;
       }
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setProductsError(data.error || "Suppression impossible.");
+        return;
+      }
+
+      await refreshAll(true);
+    } catch {
+      setProductsError("Erreur reseau pendant la suppression du produit.");
     } finally {
       setDeletingId(null);
     }
@@ -295,6 +372,7 @@ export default function AdminBoutique() {
 
       setFormOpen(false);
       setForm(EMPTY_FORM);
+      setColorDraft("");
       setEditingId(null);
       setImageUploadError("");
       await refreshAll(true);
@@ -418,6 +496,106 @@ export default function AdminBoutique() {
   const formColorOptions = useMemo(() => parseColorList(form.color), [form.color]);
   const formSizeOptions = useMemo(() => toSizes(form.sizes) || [], [form.sizes]);
 
+  function setFormColors(colors: string[]) {
+    const next = uniqueColors(colors);
+    setForm((prev) => {
+      const nextColorImages: ColorImagesMap = {};
+
+      for (const color of next) {
+        const images = uniqueImageUrls(getColorImages(prev.colorImages, color));
+        if (images.length > 0) {
+          nextColorImages[color] = images;
+        }
+      }
+
+      return {
+        ...prev,
+        color: next.join(", "),
+        colorImages: nextColorImages,
+      };
+    });
+  }
+
+  function addColor(rawColor: string) {
+    const values = parseColorList(rawColor);
+    if (values.length === 0) return;
+    setFormColors([...formColorOptions, ...values]);
+    setColorDraft("");
+  }
+
+  function removeColor(color: string) {
+    const key = normalizeColorName(color);
+    setFormColors(formColorOptions.filter((value) => normalizeColorName(value) !== key));
+  }
+
+  function togglePresetColor(color: string) {
+    const key = normalizeColorName(color);
+    const exists = formColorOptions.some((value) => normalizeColorName(value) === key);
+    if (exists) {
+      removeColor(color);
+      return;
+    }
+    addColor(color);
+  }
+
+  async function handleColorImageFileChange(color: string, e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setImageUploading(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const file of files) {
+        const url = await handleImageUpload(file);
+        if (url) uploadedUrls.push(url);
+      }
+
+      if (uploadedUrls.length > 0) {
+        setForm((prev) => {
+          const current = getColorImages(prev.colorImages, color);
+          const merged = uniqueImageUrls([...current, ...uploadedUrls]);
+          const normalized = normalizeColorName(color);
+          const nextMap = { ...prev.colorImages };
+
+          for (const key of Object.keys(nextMap)) {
+            if (normalizeColorName(key) === normalized) {
+              delete nextMap[key];
+            }
+          }
+          if (merged.length > 0) {
+            nextMap[color] = merged;
+          }
+
+          return { ...prev, colorImages: nextMap };
+        });
+      }
+    } finally {
+      setImageUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  function removeColorImage(color: string, index: number) {
+    setForm((prev) => {
+      const current = getColorImages(prev.colorImages, color);
+      const nextImages = current.filter((_, imageIndex) => imageIndex !== index);
+      const normalized = normalizeColorName(color);
+      const nextMap = { ...prev.colorImages };
+
+      for (const key of Object.keys(nextMap)) {
+        if (normalizeColorName(key) === normalized) {
+          delete nextMap[key];
+        }
+      }
+      if (nextImages.length > 0) {
+        nextMap[color] = nextImages;
+      }
+
+      return { ...prev, colorImages: nextMap };
+    });
+  }
+
   const filteredProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
 
@@ -428,7 +606,8 @@ export default function AdminBoutique() {
         p.name.toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q) ||
         p.slug.toLowerCase().includes(q) ||
-        (p.color || "").toLowerCase().includes(q)
+        (p.color || "").toLowerCase().includes(q) ||
+        Object.keys(p.colorImages || {}).some((color) => color.toLowerCase().includes(q))
       );
     });
 
@@ -666,6 +845,12 @@ export default function AdminBoutique() {
         </div>
       )}
 
+      {adminView === "products" && productsError && (
+        <p className="mb-4 rounded-lg border border-[var(--accent)]/35 bg-[var(--accent)]/10 px-3 py-2 text-sm text-[var(--accent-deep)]">
+          {productsError}
+        </p>
+      )}
+
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-xl">
@@ -816,24 +1001,62 @@ export default function AdminBoutique() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-[var(--foreground)]">
-                    Couleurs (séparées par virgules)
+                    Couleurs (plusieurs possibles)
                   </label>
-                  <input
-                    type="text"
-                    value={form.color}
-                    onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
-                    placeholder="Ex. Noir, Blanc, Rouge"
-                    className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--foreground)]"
-                  />
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      type="text"
+                      value={colorDraft}
+                      onChange={(e) => setColorDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addColor(colorDraft);
+                        }
+                      }}
+                      placeholder="Ex. Noir ou #111111"
+                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--foreground)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addColor(colorDraft)}
+                      className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                    >
+                      Ajouter
+                    </button>
+                  </div>
                   <p className="mt-1 text-[11px] text-[var(--muted)]">
-                    Vous pouvez aussi entrer un code couleur HEX (ex. #111111).
+                    Entrez une couleur puis cliquez sur &quot;Ajouter&quot;. Codes HEX acceptes (ex. #111111).
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {COMMON_COLOR_OPTIONS.map((color) => {
+                      const selected = formColorOptions.some(
+                        (value) => normalizeColorName(value) === normalizeColorName(color)
+                      );
+                      return (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => togglePresetColor(color)}
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${
+                            selected
+                              ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                              : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
+                          }`}
+                        >
+                          {color}
+                        </button>
+                      );
+                    })}
+                  </div>
                   {formColorOptions.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {formColorOptions.map((color) => (
-                        <span
+                        <button
                           key={color}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]"
+                          type="button"
+                          onClick={() => removeColor(color)}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
                         >
                           <span
                             className="h-3.5 w-3.5 rounded-full border border-black/15"
@@ -841,9 +1064,89 @@ export default function AdminBoutique() {
                             aria-hidden
                           />
                           {color}
-                        </span>
+                          <span className="text-[10px] leading-none">×</span>
+                        </button>
                       ))}
                     </div>
+                  )}
+
+                  {formColorOptions.length > 0 && (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+                        Images par couleur (optionnel)
+                      </p>
+                      {formColorOptions.map((color, colorIndex) => {
+                        const colorImages = getColorImages(form.colorImages, color);
+                        const colorInputId = `color-images-${normalizeColorName(color).replace(/[^a-z0-9]+/g, "-")}-${colorIndex}`;
+
+                        return (
+                          <div
+                            key={`color-images-${color}`}
+                            className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-3"
+                          >
+                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--foreground)]">
+                                <span
+                                  className="h-3.5 w-3.5 rounded-full border border-black/15"
+                                  style={{ backgroundColor: colorToSwatch(color) }}
+                                  aria-hidden
+                                />
+                                {color}
+                              </span>
+                              <label
+                                htmlFor={colorInputId}
+                                className="cursor-pointer rounded border border-[var(--border)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                              >
+                                Ajouter images
+                              </label>
+                              <input
+                                id={colorInputId}
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => {
+                                  void handleColorImageFileChange(color, e);
+                                }}
+                                className="hidden"
+                              />
+                            </div>
+
+                            {colorImages.length === 0 ? (
+                              <p className="text-[11px] text-[var(--muted)]">
+                                Aucune image specifique pour cette couleur.
+                              </p>
+                            ) : (
+                              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                                {colorImages.map((img, imageIndex) => (
+                                  <div
+                                    key={`${color}-${img}-${imageIndex}`}
+                                    className="rounded border border-[var(--border)] bg-white p-1"
+                                  >
+                                    <div className="relative h-16 w-full overflow-hidden rounded">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={img} alt="" className="h-full w-full object-cover" />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeColorImage(color, imageIndex)}
+                                      className="mt-1 w-full rounded border border-[var(--border)] px-1 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                                    >
+                                      Retirer
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {formColorOptions.length === 0 && (
+                    <p className="mt-2 text-[11px] text-[var(--muted)]">
+                      Aucune couleur ajoutee.
+                    </p>
                   )}
                 </div>
 

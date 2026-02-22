@@ -1,4 +1,6 @@
-function normalize(value: string): string {
+export type ColorImagesMap = Record<string, string[]>;
+
+export function normalizeColorName(value: string): string {
   return value
     .toLowerCase()
     .normalize("NFD")
@@ -66,10 +68,66 @@ export function colorToSwatch(color: string): string {
     return value;
   }
 
-  const key = normalize(value);
+  const key = normalizeColorName(value);
   if (COLOR_MAP[key]) {
     return COLOR_MAP[key];
   }
 
   return colorFromHash(key);
+}
+
+function toImageUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function uniqueImageUrls(values: unknown[]): string[] {
+  const output: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values) {
+    const url = toImageUrl(value);
+    if (!url) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    output.push(url);
+  }
+
+  return output;
+}
+
+export function normalizeColorImagesMap(input: unknown): ColorImagesMap {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+
+  const entries = Object.entries(input as Record<string, unknown>);
+  const output: ColorImagesMap = {};
+
+  for (const [rawColor, rawImages] of entries) {
+    const color = rawColor.trim();
+    if (!color) continue;
+    if (!Array.isArray(rawImages)) continue;
+
+    const images = uniqueImageUrls(rawImages);
+    if (images.length === 0) continue;
+
+    const existing = output[color] ?? [];
+    output[color] = uniqueImageUrls([...existing, ...images]);
+  }
+
+  return output;
+}
+
+export function getColorImages(colorImages: ColorImagesMap | undefined, color: string | undefined): string[] {
+  if (!colorImages || !color) return [];
+
+  const target = normalizeColorName(color);
+  if (!target) return [];
+
+  for (const [key, images] of Object.entries(colorImages)) {
+    if (normalizeColorName(key) !== target) continue;
+    return uniqueImageUrls(images);
+  }
+
+  return [];
 }

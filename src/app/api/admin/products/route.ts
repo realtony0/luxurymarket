@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { isAdmin } from "@/lib/auth-admin";
 import { getProducts, addProduct } from "@/lib/products-data";
 import { normalizeProductImages, type Product } from "@/lib/products";
+import { normalizeColorImagesMap } from "@/lib/product-options";
 
 export async function GET() {
   if (!(await isAdmin())) {
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     images,
     description,
     color,
+    colorImages,
     sizes,
   } = body;
 
@@ -50,6 +52,10 @@ export async function POST(request: NextRequest) {
     description: String(description).trim(),
   };
   if (color != null) input.color = String(color).trim() || undefined;
+  const normalizedColorImages = normalizeColorImagesMap(colorImages);
+  if (Object.keys(normalizedColorImages).length > 0) {
+    input.colorImages = normalizedColorImages;
+  }
   if (Array.isArray(sizes)) input.sizes = sizes.map((s: unknown) => String(s));
 
   try {
