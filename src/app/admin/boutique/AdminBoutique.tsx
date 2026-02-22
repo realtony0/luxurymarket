@@ -97,6 +97,8 @@ export default function AdminBoutique() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState("");
   const [form, setForm] = useState<ProductFormState>(EMPTY_FORM);
 
   const [newCategory, setNewCategory] = useState("");
@@ -145,6 +147,8 @@ export default function AdminBoutique() {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setFormError("");
+    setImageUploadError("");
+    setImageUploading(false);
     setFormOpen(true);
   }
 
@@ -162,6 +166,8 @@ export default function AdminBoutique() {
       sizes: fromSizes(product.sizes),
     });
     setFormError("");
+    setImageUploadError("");
+    setImageUploading(false);
     setFormOpen(true);
   }
 
@@ -179,7 +185,43 @@ export default function AdminBoutique() {
       sizes: fromSizes(product.sizes),
     });
     setFormError("");
+    setImageUploadError("");
+    setImageUploading(false);
     setFormOpen(true);
+  }
+
+  async function handleImageUpload(file: File) {
+    setImageUploadError("");
+    setImageUploading(true);
+
+    try {
+      const body = new FormData();
+      body.append("file", file);
+
+      const res = await fetch("/api/admin/uploads", {
+        method: "POST",
+        body,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || typeof data?.url !== "string") {
+        setImageUploadError(data.error || "Upload image impossible.");
+        return;
+      }
+
+      setForm((prev) => ({ ...prev, image: data.url }));
+    } catch {
+      setImageUploadError("Upload image impossible.");
+    } finally {
+      setImageUploading(false);
+    }
+  }
+
+  async function handleImageFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await handleImageUpload(file);
+    e.target.value = "";
   }
 
   async function handleDelete(id: string) {
@@ -198,6 +240,12 @@ export default function AdminBoutique() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError("");
+
+    if (imageUploading) {
+      setFormError("Attendez la fin de l'upload image.");
+      return;
+    }
+
     setFormLoading(true);
 
     try {
@@ -220,6 +268,7 @@ export default function AdminBoutique() {
       setFormOpen(false);
       setForm(EMPTY_FORM);
       setEditingId(null);
+      setImageUploadError("");
       await refreshAll(true);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
@@ -569,15 +618,42 @@ export default function AdminBoutique() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--foreground)]">URL image *</label>
-                <input
-                  type="url"
-                  value={form.image}
-                  onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))}
-                  required
-                  placeholder="https://..."
-                  className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--foreground)]"
-                />
+                <label className="block text-sm font-medium text-[var(--foreground)]">Photo produit *</label>
+                <div className="mt-1 rounded-lg border border-[var(--border)] p-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageFileChange}
+                    className="block w-full text-sm text-[var(--foreground)] file:mr-3 file:rounded file:border file:border-[var(--border)] file:bg-[var(--background)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:uppercase file:tracking-[0.12em]"
+                  />
+                  <p className="mt-2 text-xs text-[var(--muted)]">
+                    JPG, PNG, WEBP ou AVIF. Taille max: 8MB.
+                  </p>
+
+                  {imageUploading && (
+                    <p className="mt-2 text-xs font-medium text-[var(--muted)]">Upload en cours…</p>
+                  )}
+                  {imageUploadError && (
+                    <p className="mt-2 text-xs text-[var(--accent-deep)]">{imageUploadError}</p>
+                  )}
+
+                  {form.image && (
+                    <div className="mt-3">
+                      <div className="relative h-24 w-24 overflow-hidden rounded border border-[var(--border)]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={form.image} alt="" className="h-full w-full object-cover" />
+                      </div>
+                      <p className="mt-2 break-all text-[11px] text-[var(--muted)]">{form.image}</p>
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, image: "" }))}
+                        className="mt-2 rounded border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                      >
+                        Retirer l&apos;image
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -625,10 +701,16 @@ export default function AdminBoutique() {
                 </button>
                 <button
                   type="submit"
-                  disabled={formLoading}
+                  disabled={formLoading || imageUploading}
                   className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-70"
                 >
-                  {formLoading ? "Enregistrement…" : formMode === "edit" ? "Mettre à jour" : "Ajouter"}
+                  {imageUploading
+                    ? "Upload image…"
+                    : formLoading
+                      ? "Enregistrement…"
+                      : formMode === "edit"
+                        ? "Mettre à jour"
+                        : "Ajouter"}
                 </button>
               </div>
             </form>
