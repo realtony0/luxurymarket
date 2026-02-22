@@ -6,6 +6,7 @@ import { useRef, useState, useEffect } from "react";
 import type { Product } from "@/lib/products";
 import { formatPrice } from "@/lib/products";
 import { useCart } from "@/components/cart/CartProvider";
+import { colorToSwatch, parseColorList } from "@/lib/product-options";
 
 export default function ProductCard({ product, index = 0 }: { product: Product; index?: number }) {
   const ref = useRef<HTMLElement>(null);
@@ -13,6 +14,8 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
   const [visible, setVisible] = useState(false);
   const [added, setAdded] = useState(false);
   const { addItem } = useCart();
+  const colorOptions = parseColorList(product.color);
+  const primaryColor = colorOptions[0];
 
   useEffect(() => {
     const el = ref.current;
@@ -72,9 +75,15 @@ export default function ProductCard({ product, index = 0 }: { product: Product; 
           </div>
 
           <div className="p-4">
-            {product.color && (
-              <span className="inline-block rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--accent)] sm:text-[10px] sm:tracking-[0.16em]">
-                {product.color}
+            {primaryColor && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent)]/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--accent)] sm:text-[10px] sm:tracking-[0.16em]">
+                <span
+                  className="h-3 w-3 rounded-full border border-black/10"
+                  style={{ backgroundColor: colorToSwatch(primaryColor) }}
+                  aria-hidden
+                />
+                {primaryColor}
+                {colorOptions.length > 1 ? ` +${colorOptions.length - 1}` : ""}
               </span>
             )}
             <h3 className="mt-2 line-clamp-2 text-sm font-bold text-[var(--foreground)] transition group-hover:text-[var(--accent)] sm:text-base">

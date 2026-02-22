@@ -9,7 +9,7 @@ const nav = [
   { href: "/", label: "Accueil" },
   { href: "/mode", label: "Mode" },
   { href: "/univers", label: "Univers" },
-  { href: "/panier", label: "Panier" },
+  { href: "/pourquoi-nous", label: "A propos" },
 ] as const;
 
 export default function Header() {
@@ -20,6 +20,20 @@ export default function Header() {
   function closeMenu() {
     setMenuOpen(false);
   }
+
+  function isActive(href: string) {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(href);
+  }
+
+  const desktopActive = "rounded-full bg-[var(--accent)] px-3 py-1.5 text-white";
+  const desktopInactive =
+    "rounded-full px-3 py-1.5 text-white/75 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-darker)]";
+
+  const mobileActive =
+    "flex h-11 items-center justify-between rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold uppercase tracking-[0.12em] text-white";
+  const mobileInactive =
+    "flex h-11 items-center justify-between rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold uppercase tracking-[0.12em] text-white/85 transition hover:text-white";
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-[var(--surface-darker)]/90 text-white backdrop-blur-xl">
@@ -32,52 +46,68 @@ export default function Header() {
           Luxury Market
         </Link>
 
-        <button
-          type="button"
-          onClick={() => setMenuOpen((open) => !open)}
-          aria-expanded={menuOpen}
-          aria-controls="mobile-menu"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-darker)] md:hidden"
-        >
-          <span className="sr-only">Ouvrir le menu</span>
-          <span className="relative block h-4 w-5">
-            <span
-              className={`absolute left-0 top-0 h-0.5 w-5 rounded bg-white transition ${menuOpen ? "translate-y-[7px] rotate-45" : ""}`}
-            />
-            <span
-              className={`absolute left-0 top-[7px] h-0.5 w-5 rounded bg-white transition ${menuOpen ? "opacity-0" : "opacity-100"}`}
-            />
-            <span
-              className={`absolute left-0 top-[14px] h-0.5 w-5 rounded bg-white transition ${menuOpen ? "-translate-y-[7px] -rotate-45" : ""}`}
-            />
-          </span>
-        </button>
-
-        <nav
-          className="hidden items-center gap-3 overflow-x-auto rounded-full border border-white/15 bg-white/5 px-2 py-1 text-xs font-semibold uppercase tracking-[0.16em] md:flex"
-          aria-label="Navigation principale"
-        >
-          {nav.map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className={
-                pathname === href || (href !== "/" && pathname.startsWith(href))
-                  ? "rounded-full bg-[var(--accent)] px-3 py-1.5 text-white"
-                  : "rounded-full px-3 py-1.5 text-white/75 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-darker)]"
-              }
-            >
-              <span className="inline-flex items-center gap-2">
+        <div className="flex items-center gap-2 md:gap-3">
+          <nav
+            className="hidden items-center gap-3 overflow-x-auto rounded-full border border-white/15 bg-white/5 px-2 py-1 text-xs font-semibold uppercase tracking-[0.16em] md:flex"
+            aria-label="Navigation principale"
+          >
+            {nav.map(({ href, label }) => (
+              <Link key={href} href={href} className={isActive(href) ? desktopActive : desktopInactive}>
                 {label}
-                {href === "/panier" && hydrated && itemCount > 0 && (
-                  <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 py-0.5 text-[10px] leading-none text-[var(--surface-darker)]">
-                    {itemCount}
-                  </span>
-                )}
+              </Link>
+            ))}
+          </nav>
+
+          <Link
+            href="/panier"
+            onClick={closeMenu}
+            aria-label="Panier"
+            className={
+              isActive("/panier")
+                ? "relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent)] text-white transition"
+                : "relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-darker)]"
+            }
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              className="h-5 w-5"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h2l2.1 10.2a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 7H7.1" />
+              <circle cx="10" cy="19" r="1.2" fill="currentColor" stroke="none" />
+              <circle cx="17" cy="19" r="1.2" fill="currentColor" stroke="none" />
+            </svg>
+            {hydrated && itemCount > 0 && (
+              <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--surface-darker)]">
+                {itemCount}
               </span>
-            </Link>
-          ))}
-        </nav>
+            )}
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-menu"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-darker)] md:hidden"
+          >
+            <span className="sr-only">Ouvrir le menu</span>
+            <span className="relative block h-4 w-5">
+              <span
+                className={`absolute left-0 top-0 h-0.5 w-5 rounded bg-white transition ${menuOpen ? "translate-y-[7px] rotate-45" : ""}`}
+              />
+              <span
+                className={`absolute left-0 top-[7px] h-0.5 w-5 rounded bg-white transition ${menuOpen ? "opacity-0" : "opacity-100"}`}
+              />
+              <span
+                className={`absolute left-0 top-[14px] h-0.5 w-5 rounded bg-white transition ${menuOpen ? "-translate-y-[7px] -rotate-45" : ""}`}
+              />
+            </span>
+          </button>
+        </div>
       </div>
 
       <div
@@ -91,18 +121,9 @@ export default function Header() {
                 <Link
                   href={href}
                   onClick={closeMenu}
-                  className={
-                    pathname === href || (href !== "/" && pathname.startsWith(href))
-                      ? "flex h-11 items-center justify-between rounded-xl bg-[var(--accent)] px-4 text-sm font-semibold uppercase tracking-[0.12em] text-white"
-                      : "flex h-11 items-center justify-between rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold uppercase tracking-[0.12em] text-white/85 transition hover:text-white"
-                  }
+                  className={isActive(href) ? mobileActive : mobileInactive}
                 >
                   <span>{label}</span>
-                  {href === "/panier" && hydrated && itemCount > 0 && (
-                    <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 py-0.5 text-[10px] leading-none text-[var(--surface-darker)]">
-                      {itemCount}
-                    </span>
-                  )}
                 </Link>
               </li>
             ))}

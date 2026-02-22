@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/components/cart/CartProvider";
 import { formatPrice } from "@/lib/products";
+import { colorToSwatch } from "@/lib/product-options";
 
 export default function PanierView() {
   const { items, hydrated, itemCount, subtotal, updateQuantity, removeItem, clearCart } = useCart();
@@ -62,7 +63,7 @@ export default function PanierView() {
         <section className="space-y-4">
           {items.map((item) => (
             <article
-              key={item.id}
+              key={item.lineId}
               className="grid grid-cols-[84px_1fr] gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3.5 shadow-sm sm:grid-cols-[96px_1fr_auto] sm:items-center sm:gap-4 sm:p-4"
             >
               <div className="relative h-20 w-20 overflow-hidden rounded-xl bg-[var(--muted)]/10 sm:h-24 sm:w-24">
@@ -86,11 +87,30 @@ export default function PanierView() {
                   {item.name}
                 </Link>
                 <p className="mt-1 text-sm text-[var(--muted)]">{formatPrice(item.price)}</p>
+                {(item.color || item.size) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {item.color && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
+                        <span
+                          className="h-3.5 w-3.5 rounded-full border border-black/15"
+                          style={{ backgroundColor: colorToSwatch(item.color) }}
+                          aria-hidden
+                        />
+                        {item.color}
+                      </span>
+                    )}
+                    {item.size && (
+                      <span className="inline-flex items-center rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]">
+                        Taille {item.size}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                    onClick={() => updateQuantity(item.lineId, item.quantity - 1)}
                     className="h-10 w-10 rounded-lg border border-[var(--border)] text-lg leading-none text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] sm:h-9 sm:w-9"
                     aria-label={`Réduire la quantité de ${item.name}`}
                   >
@@ -101,7 +121,7 @@ export default function PanierView() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                    onClick={() => updateQuantity(item.lineId, item.quantity + 1)}
                     className="h-10 w-10 rounded-lg border border-[var(--border)] text-lg leading-none text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] sm:h-9 sm:w-9"
                     aria-label={`Augmenter la quantité de ${item.name}`}
                   >
@@ -109,7 +129,7 @@ export default function PanierView() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => removeItem(item.id)}
+                    onClick={() => removeItem(item.lineId)}
                     className="ml-1 rounded-lg px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.13em] text-[var(--muted)] transition hover:text-[var(--accent)] sm:text-xs sm:tracking-[0.14em]"
                   >
                     Supprimer

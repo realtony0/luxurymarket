@@ -7,13 +7,13 @@ import { formatPrice } from "@/lib/products";
 import {
   mapModeCategory,
   mapUniverseCategory,
-  MODE_CATEGORIES,
-  UNIVERSE_CATEGORIES,
 } from "@/lib/universe-categories";
+import { colorToSwatch, parseColorList } from "@/lib/product-options";
 
 type UniverseFilter = "all" | "mode" | "tout";
 type SortBy = "category" | "name" | "price-asc" | "price-desc";
 type FormMode = "create" | "edit";
+type AdminView = "products" | "categories";
 
 type ProductFormState = {
   name: string;
@@ -31,12 +31,6 @@ type CategoryInfo = {
   count: number;
 };
 
-type QuickEditState = {
-  price: string;
-  category: string;
-  universe: "mode" | "tout";
-};
-
 const EMPTY_FORM: ProductFormState = {
   name: "",
   price: "",
@@ -47,6 +41,24 @@ const EMPTY_FORM: ProductFormState = {
   color: "",
   sizes: "",
 };
+
+const COMMON_SIZE_OPTIONS = [
+  "XS",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "Unique",
+  "37",
+  "38",
+  "39",
+  "40",
+  "41",
+  "42",
+  "43",
+  "44",
+] as const;
 
 function toSizes(raw: string): string[] | undefined {
   const items = raw
@@ -117,14 +129,9 @@ export default function AdminBoutique() {
   const [categoryError, setCategoryError] = useState("");
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
-  const [replacements, setReplacements] = useState<Record<string, string>>({});
   const [renamingCategory, setRenamingCategory] = useState<string | null>(null);
   const [renameDrafts, setRenameDrafts] = useState<Record<string, string>>({});
-
-  const [quickEditingId, setQuickEditingId] = useState<string | null>(null);
-  const [quickEdit, setQuickEdit] = useState<QuickEditState | null>(null);
-  const [quickSavingId, setQuickSavingId] = useState<string | null>(null);
-  const [quickEditError, setQuickEditError] = useState("");
+  const [adminView, setAdminView] = useState<AdminView>("products");
 
   async function refreshAll(silent = false) {
     if (silent) setRefreshing(true);
@@ -176,25 +183,6 @@ export default function AdminBoutique() {
     setEditingId(product.id);
     setForm({
       name: product.name,
-      price: String(product.price),
-      category: product.category,
-      universe: product.universe,
-      image: product.image,
-      description: product.description,
-      color: product.color || "",
-      sizes: fromSizes(product.sizes),
-    });
-    setFormError("");
-    setImageUploadError("");
-    setImageUploading(false);
-    setFormOpen(true);
-  }
-
-  function openDuplicateForm(product: Product) {
-    setFormMode("create");
-    setEditingId(null);
-    setForm({
-      name: `${product.name} copie`,
       price: String(product.price),
       category: product.category,
       universe: product.universe,
@@ -328,9 +316,8 @@ export default function AdminBoutique() {
   async function handleDeleteCategory(category: CategoryInfo) {
     setCategoryError("");
 
-    const replacement = (replacements[category.name] || "").trim();
-    if (category.count > 0 && !replacement) {
-      setCategoryError(`La catégorie "${category.name}" contient des produits. Choisir une catégorie de remplacement.`);
+    if (category.count > 0) {
+      setCategoryError(`Impossible de supprimer "${category.name}" car cette catégorie contient des produits.`);
       return;
     }
 
@@ -340,8 +327,6 @@ export default function AdminBoutique() {
     try {
       const res = await fetch(`/api/admin/categories/${encodeURIComponent(category.name)}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(replacement ? { replacement } : {}),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -349,12 +334,6 @@ export default function AdminBoutique() {
         setCategoryError(data.error || "Erreur lors de la suppression de catégorie.");
         return;
       }
-
-      setReplacements((prev) => {
-        const next = { ...prev };
-        delete next[category.name];
-        return next;
-      });
 
       await refreshAll(true);
     } finally {
@@ -404,92 +383,19 @@ export default function AdminBoutique() {
     }
   }
 
-  function openQuickEdit(product: Product) {
-    setQuickEditingId(product.id);
-    setQuickEdit({
-      price: String(product.price),
-      category: product.category,
-      universe: product.universe,
+  function toggleFormSize(size: string) {
+    setForm((prev) => {
+      const current = toSizes(prev.sizes) || [];
+      const next = current.includes(size)
+        ? current.filter((value) => value !== size)
+        : [...current, size];
+      return { ...prev, sizes: next.join(", ") };
     });
-    setQuickEditError("");
-  }
-
-  function cancelQuickEdit() {
-    setQuickEditingId(null);
-    setQuickEdit(null);
-    setQuickEditError("");
-  }
-
-  async function handleSaveQuickEdit(productId: string) {
-    if (!quickEdit || quickEditingId !== productId) return;
-
-    setQuickEditError("");
-    const price = parseInt(quickEdit.price, 10);
-    const rawCategory = quickEdit.category.trim();
-
-    if (Number.isNaN(price) || price < 0) {
-      setQuickEditError("Prix invalide.");
-      return;
-    }
-
-    if (!rawCategory) {
-      setQuickEditError("Catégorie requise.");
-      return;
-    }
-
-    const mappedCategory =
-      quickEdit.universe === "tout"
-        ? mapUniverseCategory(rawCategory)
-        : mapModeCategory(rawCategory);
-
-    setQuickSavingId(productId);
-    try {
-      const res = await fetch(`/api/admin/products/${productId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          price,
-          universe: quickEdit.universe,
-          category: mappedCategory,
-        }),
-      });
-
-      if (res.status === 401) {
-        window.location.href = "/admin";
-        return;
-      }
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setQuickEditError(data.error || "Erreur lors de la mise à jour rapide.");
-        return;
-      }
-
-      setQuickEditingId(null);
-      setQuickEdit(null);
-      await refreshAll(true);
-    } finally {
-      setQuickSavingId(null);
-    }
   }
 
   const existingCategories = useMemo(() => categories.map((c) => c.name), [categories]);
-
-  const modeCategoryOptions = useMemo(() => {
-    const values = new Set<string>(MODE_CATEGORIES);
-    for (const product of products) {
-      if (product.universe === "mode") values.add(product.category);
-    }
-    return [...values].sort((a, b) => a.localeCompare(b, "fr"));
-  }, [products]);
-
-  const universeCategoryOptions = useMemo(() => {
-    const values = new Set<string>(UNIVERSE_CATEGORIES);
-    for (const product of products) {
-      if (product.universe === "tout") values.add(product.category);
-    }
-    return [...values].sort((a, b) => a.localeCompare(b, "fr"));
-  }, [products]);
+  const formColorOptions = useMemo(() => parseColorList(form.color), [form.color]);
+  const formSizeOptions = useMemo(() => toSizes(form.sizes) || [], [form.sizes]);
 
   const filteredProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -526,7 +432,7 @@ export default function AdminBoutique() {
         <div>
           <h1 className="font-heading text-2xl font-semibold text-[var(--foreground)]">Administration boutique</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Contrôle produits + catégories: créer, modifier, dupliquer, supprimer et filtrer.
+            Contrôle produits + catégories: créer, modifier, supprimer et filtrer.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -578,6 +484,37 @@ export default function AdminBoutique() {
         </div>
       </div>
 
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setAdminView("products")}
+            className={`rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+              adminView === "products"
+                ? "bg-[var(--accent)] text-white"
+                : "border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            Produits ({products.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setAdminView("categories")}
+            className={`rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition ${
+              adminView === "categories"
+                ? "bg-[var(--accent)] text-white"
+                : "border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            Catégories ({categoryCount})
+          </button>
+        </div>
+        <p className="text-xs text-[var(--muted)]">
+          Vue active: <span className="font-semibold text-[var(--foreground)]">{adminView === "products" ? "Produits" : "Catégories"}</span>
+        </p>
+      </div>
+
+      {adminView === "categories" && (
       <section className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-56 flex-1">
@@ -602,130 +539,111 @@ export default function AdminBoutique() {
 
         {categoryError && <p className="mt-2 text-sm text-[var(--accent-deep)]">{categoryError}</p>}
 
-        <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--border)]">
-          <table className="w-full border-collapse bg-white">
-            <thead>
-              <tr className="bg-[var(--background)]">
-                <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Catégorie</th>
-                <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Produits</th>
-                <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Renommer</th>
-                <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Remplacer par</th>
-                <th className="border-b border-[var(--border)] p-3 text-right text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-4 text-sm text-[var(--muted)]">Aucune catégorie.</td>
+        {loading ? (
+          <p className="mt-4 text-sm text-[var(--muted)]">Chargement des catégories…</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-lg border border-[var(--border)]">
+            <table className="w-full border-collapse bg-white">
+              <thead>
+                <tr className="bg-[var(--background)]">
+                  <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Catégorie</th>
+                  <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Produits</th>
+                  <th className="border-b border-[var(--border)] p-3 text-left text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Renommer</th>
+                  <th className="border-b border-[var(--border)] p-3 text-right text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Actions</th>
                 </tr>
-              ) : (
-                categories.map((category) => (
-                  <tr key={category.name} className="border-b border-[var(--border)] last:border-0">
-                    <td className="p-3 text-sm font-medium text-[var(--foreground)]">{category.name}</td>
-                    <td className="p-3 text-sm text-[var(--muted)]">{category.count}</td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={renameDrafts[category.name] ?? category.name}
-                          onChange={(e) =>
-                            setRenameDrafts((prev) => ({
-                              ...prev,
-                              [category.name]: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--foreground)]"
-                        />
+              </thead>
+              <tbody>
+                {categories.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="p-4 text-sm text-[var(--muted)]">Aucune catégorie.</td>
+                  </tr>
+                ) : (
+                  categories.map((category) => (
+                    <tr key={category.name} className="border-b border-[var(--border)] last:border-0">
+                      <td className="p-3 text-sm font-medium text-[var(--foreground)]">{category.name}</td>
+                      <td className="p-3 text-sm text-[var(--muted)]">{category.count}</td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={renameDrafts[category.name] ?? category.name}
+                            onChange={(e) =>
+                              setRenameDrafts((prev) => ({
+                                ...prev,
+                                [category.name]: e.target.value,
+                              }))
+                            }
+                            className="w-full rounded border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--foreground)]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRenameCategory(category)}
+                            disabled={renamingCategory === category.name}
+                            className="rounded border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50"
+                          >
+                            {renamingCategory === category.name ? "…" : "Renommer"}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="p-3 text-right">
                         <button
                           type="button"
-                          onClick={() => handleRenameCategory(category)}
-                          disabled={renamingCategory === category.name}
-                          className="rounded border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50"
+                          onClick={() => handleDeleteCategory(category)}
+                          disabled={deletingCategory === category.name}
+                          className="rounded border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--accent-deep)] transition hover:border-[var(--accent-deep)] disabled:opacity-50"
                         >
-                          {renamingCategory === category.name ? "…" : "Renommer"}
+                          {deletingCategory === category.name ? "…" : "Supprimer"}
                         </button>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      {category.count > 0 ? (
-                        <select
-                          value={replacements[category.name] || ""}
-                          onChange={(e) =>
-                            setReplacements((prev) => ({
-                              ...prev,
-                              [category.name]: e.target.value,
-                            }))
-                          }
-                          className="w-full rounded border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--foreground)]"
-                        >
-                          <option value="">Choisir…</option>
-                          {categories
-                            .filter((c) => c.name !== category.name)
-                            .map((c) => (
-                              <option key={c.name} value={c.name}>
-                                {c.name}
-                              </option>
-                            ))}
-                        </select>
-                      ) : (
-                        <span className="text-xs text-[var(--muted)]">Non requis</span>
-                      )}
-                    </td>
-                    <td className="p-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteCategory(category)}
-                        disabled={deletingCategory === category.name}
-                        className="rounded border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--accent-deep)] transition hover:border-[var(--accent-deep)] disabled:opacity-50"
-                      >
-                        {deletingCategory === category.name ? "…" : "Supprimer"}
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
+      )}
 
-      <div className="mb-6 grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 sm:grid-cols-3">
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Recherche</label>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Nom, slug, couleur, catégorie…"
-            className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]"
-          />
+      {adminView === "products" && (
+        <div className="mb-6 grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 sm:grid-cols-3">
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Recherche</label>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Nom, slug, couleur, catégorie…"
+              className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Univers</label>
+            <select
+              value={universeFilter}
+              onChange={(e) => setUniverseFilter(e.target.value as UniverseFilter)}
+              className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]"
+            >
+              <option value="all">Tous</option>
+              <option value="mode">Mode</option>
+              <option value="tout">Univers</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Tri</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortBy)}
+              className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]"
+            >
+              <option value="category">Catégorie</option>
+              <option value="name">Nom (A-Z)</option>
+              <option value="price-asc">Prix croissant</option>
+              <option value="price-desc">Prix décroissant</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Univers</label>
-          <select
-            value={universeFilter}
-            onChange={(e) => setUniverseFilter(e.target.value as UniverseFilter)}
-            className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]"
-          >
-            <option value="all">Tous</option>
-            <option value="mode">Mode</option>
-            <option value="tout">Univers</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Tri</label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]"
-          >
-            <option value="category">Catégorie</option>
-            <option value="name">Nom (A-Z)</option>
-            <option value="price-asc">Prix croissant</option>
-            <option value="price-desc">Prix décroissant</option>
-          </select>
-        </div>
-      </div>
+      )}
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
@@ -837,25 +755,70 @@ export default function AdminBoutique() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--foreground)]">Couleur</label>
+                  <label className="block text-sm font-medium text-[var(--foreground)]">
+                    Couleurs (séparées par virgules)
+                  </label>
                   <input
                     type="text"
                     value={form.color}
                     onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+                    placeholder="Ex. Noir, Blanc, Rouge"
                     className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--foreground)]"
                   />
+                  <p className="mt-1 text-[11px] text-[var(--muted)]">
+                    Vous pouvez aussi entrer un code couleur HEX (ex. #111111).
+                  </p>
+                  {formColorOptions.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {formColorOptions.map((color) => (
+                        <span
+                          key={color}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--muted)]"
+                        >
+                          <span
+                            className="h-3.5 w-3.5 rounded-full border border-black/15"
+                            style={{ backgroundColor: colorToSwatch(color) }}
+                            aria-hidden
+                          />
+                          {color}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-[var(--foreground)]">Tailles (virgules)</label>
+                  <label className="block text-sm font-medium text-[var(--foreground)]">
+                    Tailles
+                  </label>
                   <input
                     type="text"
                     value={form.sizes}
                     onChange={(e) => setForm((f) => ({ ...f, sizes: e.target.value }))}
-                    placeholder="S, M, L"
+                    placeholder="Ex. S, M, L"
                     className="mt-1 w-full rounded-lg border border-[var(--border)] px-3 py-2 text-[var(--foreground)]"
                   />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {COMMON_SIZE_OPTIONS.map((size) => {
+                      const selected = formSizeOptions.includes(size);
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => toggleFormSize(size)}
+                          className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] transition ${
+                            selected
+                              ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                              : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -888,25 +851,21 @@ export default function AdminBoutique() {
         </div>
       )}
 
-      {loading ? (
-        <p className="text-[var(--muted)]">Chargement…</p>
-      ) : filteredProducts.length === 0 ? (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-12 text-center">
-          <p className="text-[var(--muted)]">Aucun produit trouvé avec ces filtres.</p>
-          <button
-            type="button"
-            onClick={openCreateForm}
-            className="mt-4 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white"
-          >
-            Ajouter un produit
-          </button>
-        </div>
-      ) : (
-        <>
-          <p className="mb-2 text-xs text-[var(--muted)]">
-            Utilisez <span className="font-semibold">Rapide</span> pour modifier prix/catégorie/univers sans ouvrir la fiche complète.
-          </p>
-          {quickEditError && <p className="mb-2 text-sm text-[var(--accent-deep)]">{quickEditError}</p>}
+      {adminView === "products" && (
+        loading ? (
+          <p className="text-[var(--muted)]">Chargement…</p>
+        ) : filteredProducts.length === 0 ? (
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-12 text-center">
+            <p className="text-[var(--muted)]">Aucun produit trouvé avec ces filtres.</p>
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="mt-4 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white"
+            >
+              Ajouter un produit
+            </button>
+          </div>
+        ) : (
           <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
             <table className="w-full border-collapse">
               <thead>
@@ -920,149 +879,46 @@ export default function AdminBoutique() {
                 </tr>
               </thead>
               <tbody>
-                {filteredProducts.map((p) => {
-                  const rowQuickEdit = quickEditingId === p.id ? quickEdit : null;
-                  const activeUniverse = rowQuickEdit?.universe ?? p.universe;
-                  const categoryOptions = activeUniverse === "mode" ? modeCategoryOptions : universeCategoryOptions;
-
-                  return (
-                    <tr key={p.id} className="border-b border-[var(--border)] last:border-0">
-                      <td className="p-3">
-                        <div className="relative h-14 w-14 overflow-hidden rounded bg-[var(--muted)]/20">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={p.image} alt="" className="h-full w-full object-cover" />
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <p className="font-medium text-[var(--foreground)]">{p.name}</p>
-                        <p className="mt-0.5 text-xs text-[var(--muted)]">/{p.slug}</p>
-                      </td>
-                      <td className="p-3 text-sm text-[var(--foreground)]">
-                        {rowQuickEdit ? (
-                          <input
-                            type="number"
-                            min={0}
-                            value={rowQuickEdit.price}
-                            onChange={(e) =>
-                              setQuickEdit((prev) => (prev ? { ...prev, price: e.target.value } : prev))
-                            }
-                            className="w-28 rounded border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--foreground)]"
-                          />
-                        ) : (
-                          formatPrice(p.price)
-                        )}
-                      </td>
-                      <td className="p-3 text-sm text-[var(--muted)]">
-                        {rowQuickEdit ? (
-                          <select
-                            value={rowQuickEdit.category}
-                            onChange={(e) =>
-                              setQuickEdit((prev) => (prev ? { ...prev, category: e.target.value } : prev))
-                            }
-                            className="w-full min-w-40 rounded border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--foreground)]"
-                          >
-                            {categoryOptions.map((category) => (
-                              <option key={category} value={category}>
-                                {category}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          p.category
-                        )}
-                      </td>
-                      <td className="p-3 text-sm text-[var(--muted)]">
-                        {rowQuickEdit ? (
-                          <select
-                            value={rowQuickEdit.universe}
-                            onChange={(e) =>
-                              setQuickEdit((prev) => {
-                                if (!prev) return prev;
-                                const universe = e.target.value as "mode" | "tout";
-                                const mappedCategory =
-                                  universe === "tout"
-                                    ? mapUniverseCategory(prev.category)
-                                    : mapModeCategory(prev.category);
-                                return { ...prev, universe, category: mappedCategory };
-                              })
-                            }
-                            className="rounded border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--foreground)]"
-                          >
-                            <option value="mode">Mode</option>
-                            <option value="tout">Univers</option>
-                          </select>
-                        ) : (
-                          p.universe
-                        )}
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Link
-                            href={`/products/${p.slug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="rounded border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                          >
-                            Voir
-                          </Link>
-                          {rowQuickEdit ? (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleSaveQuickEdit(p.id)}
-                                disabled={quickSavingId === p.id}
-                                className="rounded border border-[var(--accent)] px-2.5 py-1 text-xs font-medium text-[var(--accent)] transition hover:bg-[var(--accent)] hover:text-white disabled:opacity-60"
-                              >
-                                {quickSavingId === p.id ? "…" : "Sauver"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={cancelQuickEdit}
-                                className="rounded border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--muted)] transition hover:text-[var(--foreground)]"
-                              >
-                                Annuler
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => openQuickEdit(p)}
-                              className="rounded border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                            >
-                              Rapide
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => openEditForm(p)}
-                            className="rounded border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                          >
-                            Modifier
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openDuplicateForm(p)}
-                            className="rounded border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-                          >
-                            Dupliquer
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(p.id)}
-                            disabled={deletingId === p.id}
-                            className="rounded border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--accent-deep)] transition hover:border-[var(--accent-deep)] disabled:opacity-50"
-                          >
-                            {deletingId === p.id ? "…" : "Supprimer"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filteredProducts.map((p) => (
+                  <tr key={p.id} className="border-b border-[var(--border)] last:border-0">
+                    <td className="p-3">
+                      <div className="relative h-14 w-14 overflow-hidden rounded bg-[var(--muted)]/20">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={p.image} alt="" className="h-full w-full object-cover" />
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <p className="font-medium text-[var(--foreground)]">{p.name}</p>
+                      <p className="mt-0.5 text-xs text-[var(--muted)]">/{p.slug}</p>
+                    </td>
+                    <td className="p-3 text-sm text-[var(--foreground)]">{formatPrice(p.price)}</td>
+                    <td className="p-3 text-sm text-[var(--muted)]">{p.category}</td>
+                    <td className="p-3 text-sm text-[var(--muted)]">{p.universe}</td>
+                    <td className="p-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(p)}
+                          className="rounded border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(p.id)}
+                          disabled={deletingId === p.id}
+                          className="rounded border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--accent-deep)] transition hover:border-[var(--accent-deep)] disabled:opacity-50"
+                        >
+                          {deletingId === p.id ? "…" : "Supprimer"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        </>
+        )
       )}
     </div>
   );

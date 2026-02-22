@@ -83,7 +83,11 @@ export default function CommandeForm() {
     if (hasCartItems) {
       lines.push("", "Panier :");
       items.forEach((item) => {
-        lines.push(`- ${item.name} x${item.quantity} : ${formatPrice(item.price * item.quantity)}`);
+        const options = [item.color ? `Couleur: ${item.color}` : "", item.size ? `Taille: ${item.size}` : ""]
+          .filter(Boolean)
+          .join(", ");
+        const optionText = options ? ` (${options})` : "";
+        lines.push(`- ${item.name}${optionText} x${item.quantity} : ${formatPrice(item.price * item.quantity)}`);
       });
       lines.push(`Total panier : ${formatPrice(subtotal)}`);
     } else {
@@ -129,8 +133,16 @@ export default function CommandeForm() {
             <p className="mt-1 text-xs text-[var(--muted)]">{cartLabel}</p>
             <ul className="mt-3 space-y-1 text-xs text-[var(--foreground)]/85">
               {items.map((item) => (
-                <li key={item.id} className="flex items-center justify-between gap-3">
-                  <span className="truncate pr-2">{item.name}</span>
+                <li key={item.lineId} className="flex items-center justify-between gap-3">
+                  <span className="truncate pr-2">
+                    {item.name}
+                    {item.color || item.size ? (
+                      <span className="text-[var(--muted)]">
+                        {" "}
+                        ({[item.color ? `Couleur: ${item.color}` : "", item.size ? `Taille: ${item.size}` : ""].filter(Boolean).join(", ")})
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="shrink-0">
                     x{item.quantity} - {formatPrice(item.price * item.quantity)}
                   </span>

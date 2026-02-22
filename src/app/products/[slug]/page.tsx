@@ -95,17 +95,8 @@ export default async function ProductPage({ params }: Props) {
             <p className="mt-5 text-sm leading-relaxed text-[var(--muted)] sm:mt-6 sm:text-base">
               {product.description}
             </p>
-            {product.color && (
-              <p className="mt-4 text-sm text-[var(--muted)] sm:text-base">
-                Couleur : {product.color}
-              </p>
-            )}
-            {product.sizes && product.sizes.length > 0 && (
-              <p className="mt-2 text-sm text-[var(--muted)] sm:text-base">
-                Tailles : {product.sizes.join(", ")}
-              </p>
-            )}
             <AddToCartActions
+              key={product.slug}
               backHref={backHref}
               product={{
                 id: product.id,
@@ -115,6 +106,8 @@ export default async function ProductPage({ params }: Props) {
                 image: product.image,
                 universe: product.universe,
                 category: product.category,
+                color: product.color,
+                sizes: product.sizes,
               }}
             />
           </div>
