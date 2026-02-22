@@ -556,15 +556,11 @@ export default function AdminBoutique() {
 
   async function handleDeleteModeSubcategory(subcategory: ModeSubcategoryInfo) {
     setModeSubcategoryError("");
-
-    if (subcategory.count > 0) {
-      setModeSubcategoryError(
-        `Impossible de supprimer "${subcategory.name}" car cette sous-categorie contient des produits.`
-      );
-      return;
-    }
-
-    if (!confirm(`Supprimer la sous-categorie "${subcategory.name}" ?`)) return;
+    const confirmMessage =
+      subcategory.count > 0
+        ? `Supprimer la sous-categorie "${subcategory.name}" ? Les produits lies passeront dans "Vêtements" sans sous-categorie.`
+        : `Supprimer la sous-categorie "${subcategory.name}" ?`;
+    if (!confirm(confirmMessage)) return;
 
     setDeletingModeSubcategory(subcategory.name);
     try {

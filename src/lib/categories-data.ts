@@ -330,11 +330,11 @@ export async function deleteModeSubcategory(
   let reassigned = 0;
 
   if (usageCount > 0) {
-    if (!replacement) {
-      throw new Error("Cette sous-categorie contient des produits. Choisir une sous-categorie de remplacement.");
+    const fallbackCategory = replacement || "Vêtements";
+    if (!isModeTopCategory(fallbackCategory)) {
+      await createModeSubcategory(fallbackCategory);
     }
-    await createModeSubcategory(replacement);
-    reassigned = await replaceCategory(name, replacement);
+    reassigned = await replaceCategory(name, fallbackCategory);
   }
 
   await removeRegisteredModeSubcategory(name);
