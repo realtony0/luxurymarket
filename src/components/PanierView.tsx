@@ -30,10 +30,10 @@ export default function PanierView() {
             Voir la boutique Mode
           </Link>
           <Link
-            href="/tout"
+            href="/univers"
             className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-[var(--border)] px-6 text-sm font-semibold transition hover:border-[var(--accent)] hover:text-[var(--accent)] sm:h-auto sm:w-auto sm:py-3"
           >
-            Voir la boutique Tout
+            Voir la boutique Univers
           </Link>
         </div>
       </div>

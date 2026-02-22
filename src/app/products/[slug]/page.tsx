@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getProductBySlug, getProducts } from "@/lib/products-server";
 import { formatPrice } from "@/lib/products";
+import { mapModeCategory, mapUniverseCategory } from "@/lib/universe-categories";
 import AddToCartActions from "@/components/AddToCartActions";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -55,7 +56,10 @@ export default async function ProductPage({ params }: Props) {
   const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const backHref = product.universe === "mode" ? "/mode" : "/tout";
+  const backHref = product.universe === "mode" ? "/mode" : "/univers";
+  const displayedCategory = product.universe === "tout"
+    ? mapUniverseCategory(product.category)
+    : mapModeCategory(product.category);
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -80,7 +84,7 @@ export default async function ProductPage({ params }: Props) {
           </div>
           <div>
             <p className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">
-              {product.category}
+              {displayedCategory}
             </p>
             <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight text-[var(--foreground)] sm:text-3xl md:text-4xl">
               {product.name}

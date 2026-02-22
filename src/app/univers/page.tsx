@@ -1,14 +1,14 @@
 import Image from "next/image";
 import type { Metadata } from "next";
 import { getProductsByUniverse } from "@/lib/products-server";
-import { mapModeCategory, MODE_CATEGORIES } from "@/lib/universe-categories";
+import { mapUniverseCategory, UNIVERSE_CATEGORIES } from "@/lib/universe-categories";
 import ProductCard from "@/components/ProductCard";
 
 export const metadata: Metadata = {
-  title: "Mode",
-  description: "Boutique mode Luxury Market.",
+  title: "Univers",
+  description: "Boutique univers Luxury Market.",
   alternates: {
-    canonical: "/mode",
+    canonical: "/univers",
   },
 };
 
@@ -18,14 +18,14 @@ function slug(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/\s+/g, "-");
 }
 
-export default async function ModePage() {
-  const products = await getProductsByUniverse("mode");
+export default async function ToutPage() {
+  const products = await getProductsByUniverse("tout");
   const mappedProducts = products.map((product) => ({
     ...product,
-    category: mapModeCategory(product.category),
+    category: mapUniverseCategory(product.category),
   }));
 
-  const categories = MODE_CATEGORIES.filter((category) =>
+  const categories = UNIVERSE_CATEGORIES.filter((category) =>
     mappedProducts.some((product) => product.category === category)
   );
   const productCount = mappedProducts.length;
@@ -39,15 +39,15 @@ export default async function ModePage() {
     <div className="min-h-screen bg-white">
       <section className="relative flex min-h-[38svh] items-center justify-center overflow-hidden sm:min-h-[42vh]">
         <div className="absolute inset-0">
-          <Image src="/IMG_5634.JPG" alt="" fill priority sizes="100vw" className="object-cover brightness-[0.5]" />
-          <div className="absolute inset-0 bg-black/55" />
+          <Image src="/IMG_5637.JPG" alt="" fill priority sizes="100vw" className="object-cover brightness-[0.6]" />
+          <div className="absolute inset-0 bg-black/45" />
         </div>
         <div className="relative z-10 px-4 text-center">
           <h1 className="font-display text-4xl leading-[0.88] tracking-[0.1em] text-white min-[420px]:text-5xl sm:text-6xl md:text-7xl">
             BOUTIQUE
           </h1>
-          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/80 sm:mt-4 sm:text-base sm:tracking-[0.2em]">
-            {productCount} produits mode
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/82 sm:mt-4 sm:text-base sm:tracking-[0.2em]">
+            {productCount} produits univers
           </p>
         </div>
       </section>

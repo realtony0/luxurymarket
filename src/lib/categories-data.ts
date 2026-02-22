@@ -2,6 +2,7 @@ import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import { getDb, ensureTable } from "./db";
 import { countProductsByCategory, getProducts, replaceCategory } from "./products-data";
+import { MODE_CATEGORIES, UNIVERSE_CATEGORIES } from "./universe-categories";
 
 const CATEGORIES_PATH = path.join(process.cwd(), "data", "categories.json");
 
@@ -75,7 +76,7 @@ async function removeRegisteredCategory(name: string): Promise<void> {
 export async function getCategories(): Promise<string[]> {
   const [registered, products] = await Promise.all([getRegisteredCategories(), getProducts()]);
   const productCategories = products.map((p) => p.category);
-  return uniqSorted([...registered, ...productCategories]);
+  return uniqSorted([...registered, ...productCategories, ...MODE_CATEGORIES, ...UNIVERSE_CATEGORIES]);
 }
 
 export async function getCategoryInfos(): Promise<CategoryInfo[]> {
@@ -137,4 +138,30 @@ export async function deleteCategory(
 
   await removeRegisteredCategory(name);
   return { reassigned };
+}
+
+export async function renameCategory(
+  rawName: string,
+  rawNextName: string
+): Promise<{ reassigned: number; merged: boolean }> {
+  const name = normalizeCategoryName(rawName);
+  const nextName = normalizeCategoryName(rawNextName);
+
+  if (!name) throw new Error("Nom de catégorie requis.");
+  if (!nextName) throw new Error("Nouveau nom de catégorie requis.");
+
+  const existing = await getCategories();
+  if (!existing.includes(name)) {
+    throw new Error("Catégorie introuvable.");
+  }
+  if (name === nextName) {
+    return { reassigned: 0, merged: false };
+  }
+
+  const merged = existing.includes(nextName);
+  await createCategory(nextName);
+  const reassigned = await replaceCategory(name, nextName);
+  await removeRegisteredCategory(name);
+
+  return { reassigned, merged };
 }

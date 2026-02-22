@@ -45,10 +45,10 @@ export default function HomeHero() {
             Mode
           </Link>
           <Link
-            href="/tout"
+            href="/univers"
             className="inline-flex w-full max-w-xs items-center justify-center rounded-full border-2 border-[var(--muted)] bg-transparent px-8 py-3.5 text-sm font-medium text-white transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--foreground)]"
           >
-            Tout
+            Univers
           </Link>
         </div>
         <p
