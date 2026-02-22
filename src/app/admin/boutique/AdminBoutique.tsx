@@ -158,7 +158,7 @@ function toPayload(form: ProductFormState): Omit<Product, "id" | "slug"> {
     form.universe === "tout"
       ? mapUniverseCategory(category)
       : requiresModeSubcategory
-        ? normalizeModeCategoryInput(subCategory)
+        ? subCategory
         : modeCategory;
 
   const payload: Omit<Product, "id" | "slug"> = {

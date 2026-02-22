@@ -5,7 +5,6 @@ import { countProductsByCategory, getProducts, replaceCategory } from "./product
 import {
   MODE_CATEGORIES,
   UNIVERSE_CATEGORIES,
-  mapModeSubcategory,
 } from "./universe-categories";
 
 const CATEGORIES_PATH = path.join(process.cwd(), "data", "categories.json");
@@ -47,7 +46,7 @@ function isModeTopCategory(name: string): boolean {
 function deriveModeSubcategoryFromCategory(rawCategory: string): string | null {
   const category = normalizeCategoryName(rawCategory);
   if (!category || isModeTopCategory(category)) return null;
-  return mapModeSubcategory(category) ?? category;
+  return category;
 }
 
 function collectModeSubcategoriesFromProducts(
