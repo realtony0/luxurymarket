@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import { toDisplayImageUrl } from "@/lib/display-image";
 
 type Props = {
   name: string;
@@ -20,8 +21,15 @@ export default function ProductGallery({ name, images }: Props) {
       ),
     [images]
   );
+  const displayGallery = useMemo(
+    () =>
+      gallery
+        .map((image) => toDisplayImageUrl(image))
+        .filter((image): image is string => Boolean(image)),
+    [gallery]
+  );
   const [activeIndex, setActiveIndex] = useState(0);
-  const activeImage = gallery[activeIndex] || gallery[0] || "";
+  const activeImage = displayGallery[activeIndex] || displayGallery[0] || "";
 
   return (
     <div className="space-y-3">
@@ -39,9 +47,9 @@ export default function ProductGallery({ name, images }: Props) {
         ) : null}
       </div>
 
-      {gallery.length > 1 && (
+      {displayGallery.length > 1 && (
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-          {gallery.map((image, index) => {
+          {displayGallery.map((image, index) => {
             const selected = index === activeIndex;
             return (
               <button

@@ -19,6 +19,7 @@ import {
   parseColorList,
   type ColorImagesMap,
 } from "@/lib/product-options";
+import { toDisplayImageUrl } from "@/lib/display-image";
 
 type UniverseFilter = "all" | "mode" | "tout";
 type SortBy = "category" | "name" | "price-asc" | "price-desc";
@@ -1254,8 +1255,14 @@ export default function AdminBoutique() {
                         {form.images.map((img, idx) => (
                           <div key={`${img}-${idx}`} className="rounded border border-[var(--border)] p-1.5">
                             <div className="relative h-24 w-full overflow-hidden rounded bg-[var(--background)]">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={img} alt="" className="h-full w-full object-cover" />
+                              {(() => {
+                                const displayUrl = toDisplayImageUrl(img);
+                                if (!displayUrl) return null;
+                                return (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={displayUrl} alt="" className="h-full w-full object-cover" />
+                                );
+                              })()}
                             </div>
                             <div className="mt-2 flex items-center justify-between gap-2">
                               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
@@ -1436,8 +1443,14 @@ export default function AdminBoutique() {
                                     className="rounded border border-[var(--border)] bg-white p-1"
                                   >
                                     <div className="relative h-16 w-full overflow-hidden rounded">
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img src={img} alt="" className="h-full w-full object-cover" />
+                                      {(() => {
+                                        const displayUrl = toDisplayImageUrl(img);
+                                        if (!displayUrl) return null;
+                                        return (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img src={displayUrl} alt="" className="h-full w-full object-cover" />
+                                        );
+                                      })()}
                                     </div>
                                     <button
                                       type="button"
@@ -1557,8 +1570,14 @@ export default function AdminBoutique() {
                   <tr key={p.id} className="border-b border-[var(--border)] last:border-0">
                     <td className="p-3">
                       <div className="relative h-14 w-14 overflow-hidden rounded bg-[var(--muted)]/20">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={p.images?.[0] || p.image} alt="" className="h-full w-full object-cover" />
+                        {(() => {
+                          const displayUrl = toDisplayImageUrl(p.images?.[0] || p.image);
+                          if (!displayUrl) return null;
+                          return (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={displayUrl} alt="" className="h-full w-full object-cover" />
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="p-3">

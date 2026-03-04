@@ -33,6 +33,7 @@ function getSql() {
 }
 
 let ensureTablePromise: Promise<void> | null = null;
+let ensureMediaTablePromise: Promise<void> | null = null;
 
 export async function ensureTable() {
   if (ensureTablePromise) {
@@ -77,6 +78,39 @@ export async function ensureTable() {
     await ensureTablePromise;
   } catch (error) {
     ensureTablePromise = null;
+    throw error;
+  }
+}
+
+export async function ensureMediaTable() {
+  if (ensureMediaTablePromise) {
+    await ensureMediaTablePromise;
+    return;
+  }
+
+  const sql = getSql();
+  if (!sql) return;
+
+  ensureMediaTablePromise = (async () => {
+    await sql`
+      CREATE TABLE IF NOT EXISTS media_assets (
+        id TEXT PRIMARY KEY,
+        mime_type TEXT NOT NULL,
+        bytes BYTEA NOT NULL,
+        size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS media_assets_created_at_idx
+      ON media_assets (created_at DESC)
+    `;
+  })();
+
+  try {
+    await ensureMediaTablePromise;
+  } catch (error) {
+    ensureMediaTablePromise = null;
     throw error;
   }
 }

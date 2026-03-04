@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCart } from "@/components/cart/CartProvider";
 import { formatPrice } from "@/lib/products";
 import { colorToSwatch } from "@/lib/product-options";
+import { toDisplayImageUrl } from "@/lib/display-image";
 
 export default function PanierView() {
   const { items, hydrated, itemCount, subtotal, updateQuantity, removeItem, clearCart } = useCart();
@@ -67,13 +68,20 @@ export default function PanierView() {
               className="grid grid-cols-[84px_1fr] gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3.5 shadow-sm sm:grid-cols-[96px_1fr_auto] sm:items-center sm:gap-4 sm:p-4"
             >
               <div className="relative h-20 w-20 overflow-hidden rounded-xl bg-[var(--muted)]/10 sm:h-24 sm:w-24">
-                <Image
-                  src={item.image}
-                  alt={item.name}
-                  fill
-                  sizes="96px"
-                  className="object-cover"
-                />
+                {(() => {
+                  const displayImage = toDisplayImageUrl(item.image);
+                  if (!displayImage) return null;
+                  return (
+                    <Image
+                      src={displayImage}
+                      alt={item.name}
+                      fill
+                      sizes="96px"
+                      unoptimized
+                      className="object-cover"
+                    />
+                  );
+                })()}
               </div>
 
               <div className="min-w-0">

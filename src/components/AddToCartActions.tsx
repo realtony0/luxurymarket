@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Product } from "@/lib/products";
 import { useCart } from "@/components/cart/CartProvider";
 import { colorToSwatch, getColorImages, parseColorList } from "@/lib/product-options";
+import { toDisplayImageUrl } from "@/lib/display-image";
 
 type Props = {
   product: Pick<
@@ -32,6 +33,13 @@ export default function AddToCartActions({ product, backHref, initialColor, onCo
   const selectedColorImages = useMemo(
     () => getColorImages(product.colorImages, activeColor),
     [product.colorImages, activeColor]
+  );
+  const displayColorImages = useMemo(
+    () =>
+      selectedColorImages
+        .map((image) => toDisplayImageUrl(image))
+        .filter((image): image is string => Boolean(image)),
+    [selectedColorImages]
   );
 
   useEffect(() => {
@@ -112,13 +120,13 @@ export default function AddToCartActions({ product, backHref, initialColor, onCo
         </div>
       )}
 
-      {selectedColorImages.length > 0 && (
+      {displayColorImages.length > 0 && (
         <div className="mb-6">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
             Photos {activeColor}
           </p>
           <div className="mt-2 grid grid-cols-4 gap-2">
-            {selectedColorImages.slice(0, 8).map((image, index) => (
+            {displayColorImages.slice(0, 8).map((image, index) => (
               <div key={`${image}-${index}`} className="relative aspect-square overflow-hidden rounded-lg border border-[var(--border)]">
                 <Image
                   src={image}

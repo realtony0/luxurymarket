@@ -7,6 +7,7 @@ import type { Product } from "@/lib/products";
 import { formatPrice } from "@/lib/products";
 import { useCart } from "@/components/cart/CartProvider";
 import { colorToSwatch, parseColorList } from "@/lib/product-options";
+import { toDisplayImageUrl } from "@/lib/display-image";
 
 export default function ProductCard({ product }: { product: Product }) {
   const timeoutRef = useRef<number | null>(null);
@@ -15,6 +16,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const colorOptions = parseColorList(product.color);
   const primaryColor = colorOptions[0];
   const primaryImage = product.images?.[0] || product.image;
+  const displayImage = toDisplayImageUrl(primaryImage);
 
   useEffect(() => {
     return () => {
@@ -41,14 +43,16 @@ export default function ProductCard({ product }: { product: Product }) {
       <Link href={`/products/${product.slug}`} className="group block">
         <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-2xl">
           <div className="relative aspect-square overflow-hidden bg-[var(--muted)]/10">
-            <Image
-              src={primaryImage}
-              alt={product.name}
-              fill
-              unoptimized
-              className="object-cover transition duration-700 group-hover:scale-110"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            />
+            {displayImage ? (
+              <Image
+                src={displayImage}
+                alt={product.name}
+                fill
+                unoptimized
+                className="object-cover transition duration-700 group-hover:scale-110"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              />
+            ) : null}
             <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/20" />
             <div className="absolute bottom-3 left-3 right-3 translate-y-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
               <span className="flex items-center justify-center rounded-xl bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[var(--foreground)]">
