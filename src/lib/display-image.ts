@@ -21,13 +21,5 @@ export function toDisplayImageUrl(value: string | null | undefined): string | nu
     return null;
   }
 
-  if (parsed.hostname.endsWith(".blob.vercel-storage.com")) {
-    if (process.env.NEXT_PUBLIC_ENABLE_BLOB_FALLBACK !== "1") {
-      return null;
-    }
-    const params = new URLSearchParams({ src: raw });
-    return `/api/image-proxy?${params.toString()}`;
-  }
-
   return raw;
 }

@@ -17,6 +17,7 @@ export default function ProductCard({ product }: { product: Product }) {
   const primaryColor = colorOptions[0];
   const primaryImage = product.images?.[0] || product.image;
   const displayImage = toDisplayImageUrl(primaryImage);
+  const secondaryImage = toDisplayImageUrl(product.images?.[1]);
 
   useEffect(() => {
     return () => {
@@ -44,14 +45,31 @@ export default function ProductCard({ product }: { product: Product }) {
         <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-2xl">
           <div className="relative aspect-square overflow-hidden bg-[var(--muted)]/10">
             {displayImage ? (
-              <Image
-                src={displayImage}
-                alt={product.name}
-                fill
-                unoptimized
-                className="object-cover transition duration-700 group-hover:scale-110"
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              />
+              <>
+                <Image
+                  src={displayImage}
+                  alt={product.name}
+                  fill
+                  unoptimized
+                  className={
+                    secondaryImage
+                      ? "object-cover transition duration-300 group-hover:opacity-0"
+                      : "object-cover transition duration-700 group-hover:scale-110"
+                  }
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                />
+                {secondaryImage ? (
+                  <Image
+                    src={secondaryImage}
+                    alt=""
+                    aria-hidden
+                    fill
+                    unoptimized
+                    className="object-cover opacity-0 transition duration-300 group-hover:opacity-100 group-hover:scale-110"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  />
+                ) : null}
+              </>
             ) : null}
             <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/20" />
             <div className="absolute bottom-3 left-3 right-3 translate-y-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">

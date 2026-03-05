@@ -11,10 +11,45 @@ const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || DEFAULT_WHAT
 const phoneRegex = /^[\d\s+.-]{8,20}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+type DeliveryOption = {
+  id: string;
+  title: string;
+  route: string;
+  delay: string;
+  rate: string;
+  note?: string;
+};
+
+const DELIVERY_OPTIONS: ReadonlyArray<DeliveryOption> = [
+  {
+    id: "express-afrique",
+    title: "Livraison Express",
+    route: "Chine vers Afrique",
+    delay: "3 à 4 jours",
+    rate: "10 000 F / kg",
+  },
+  {
+    id: "freight-standard-afrique",
+    title: "Livraison Freight Standard",
+    route: "Chine vers Afrique",
+    delay: "7 à 10 jours",
+    rate: "7 000 F / kg",
+  },
+  {
+    id: "internationale-diaspora",
+    title: "Livraison Internationale",
+    route: "Chine vers la Diaspora",
+    delay: "7 à 12 jours",
+    rate: "Selon transporteur et destination",
+    note: "Transport assuré par DHL, UPS, FedEx et services postaux internationaux.",
+  },
+];
+
 type FormErrors = {
   nom?: string;
   email?: string;
   telephone?: string;
+  livraison?: string;
   message?: string;
 };
 
@@ -29,6 +64,7 @@ export default function CommandeForm() {
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
   const [telephone, setTelephone] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState("");
   const [article, setArticle] = useState(() => {
     const value = searchParams.get("article");
     return value ? decodeURIComponent(value) : "";
@@ -56,6 +92,8 @@ export default function CommandeForm() {
       next.telephone = "Numéro invalide.";
     }
 
+    if (!deliveryMethod) next.livraison = "Choisissez un mode de livraison.";
+
     if (!message.trim()) next.message = "Le message est requis.";
     else if (message.trim().length < 8) next.message = "Minimum 8 caractères.";
 
@@ -70,6 +108,8 @@ export default function CommandeForm() {
 
     setLoading(true);
 
+    const selectedDelivery = DELIVERY_OPTIONS.find((option) => option.id === deliveryMethod);
+
     const lines = [
       "Bonjour Luxury Market,",
       "",
@@ -78,7 +118,15 @@ export default function CommandeForm() {
       `Nom : ${nom.trim()}`,
       `Email : ${email.trim() || "Non renseigné"}`,
       `Téléphone : ${telephone.trim() || "Non renseigné"}`,
+      `Livraison choisie (indicatif) : ${
+        selectedDelivery ? `${selectedDelivery.title} — ${selectedDelivery.route}` : "Non renseigné"
+      }`,
     ];
+
+    if (selectedDelivery) {
+      lines.push(`Délai indicatif : ${selectedDelivery.delay}`);
+      lines.push(`Tarif transport indicatif : ${selectedDelivery.rate} (non inclus dans le total panier)`);
+    }
 
     if (hasCartItems) {
       lines.push("", "Panier :");
@@ -236,6 +284,60 @@ export default function CommandeForm() {
               </div>
             )}
           </div>
+
+          <fieldset className="rounded-xl border border-[var(--border)] bg-[var(--background)]/70 p-4 sm:p-5">
+            <legend className="px-1 text-sm font-semibold text-[var(--foreground)]">Mode de livraison *</legend>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              Choix informatif pour le traitement de la commande. Le total panier reste inchangé.
+            </p>
+            <div className="mt-3 space-y-3">
+              {DELIVERY_OPTIONS.map((option) => {
+                const checked = deliveryMethod === option.id;
+                return (
+                  <label
+                    key={option.id}
+                    className={`block cursor-pointer rounded-xl border p-3.5 transition ${
+                      checked
+                        ? "border-[var(--accent)] bg-[var(--accent)]/5 shadow-sm"
+                        : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--accent)]/50"
+                    }`}
+                  >
+                    <span className="flex items-start gap-3">
+                      <input
+                        type="radio"
+                        name="delivery-method"
+                        value={option.id}
+                        checked={checked}
+                        onChange={(e) => {
+                          setDeliveryMethod(e.target.value);
+                          setErrors((prev) => ({ ...prev, livraison: undefined }));
+                        }}
+                        className="mt-1 h-4 w-4 border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-[var(--foreground)]">
+                          {option.title} - {option.route}
+                        </span>
+                        <span className="mt-1 block text-xs text-[var(--muted)]">Délai: {option.delay}</span>
+                        <span className="mt-0.5 block text-xs text-[var(--muted)]">Tarif: {option.rate}</span>
+                        {option.note ? (
+                          <span className="mt-1 block text-xs font-medium text-[var(--foreground)]/90">{option.note}</span>
+                        ) : null}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2.5 text-xs text-[var(--foreground)]/90">
+              Livraison directe à domicile: toutes les commandes sont livrées directement chez vous, en sécurité.
+            </div>
+            {errors.livraison && (
+              <p className="mt-2 text-sm text-[var(--accent-deep)]" role="alert">
+                {errors.livraison}
+              </p>
+            )}
+          </fieldset>
 
           <div>
             <label htmlFor="message" className="block text-sm font-medium text-[var(--foreground)]">
