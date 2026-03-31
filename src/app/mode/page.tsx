@@ -58,6 +58,10 @@ export default async function ModePage() {
         </div>
       </section>
 
+      <div className="border-b border-[var(--border)] bg-amber-50 px-4 py-3 text-center text-xs font-medium leading-relaxed text-amber-900 sm:px-6 sm:text-sm">
+        Pas de vente ni de livraison immédiate — commande uniquement. Les délais de livraison sont indiqués lors de la finalisation de votre panier.
+      </div>
+
       {categories.length > 0 && (
         <section className="sticky top-[5.25rem] z-30 border-b border-[var(--border)] bg-white/95 shadow-sm backdrop-blur md:top-16">
           <div className="mx-auto flex max-w-6xl items-center justify-start gap-2 overflow-x-auto px-4 py-2.5 sm:px-6 md:justify-center md:py-3">
