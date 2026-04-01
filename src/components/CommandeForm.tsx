@@ -8,7 +8,10 @@ import { formatPrice } from "@/lib/products";
 
 const DEFAULT_WHATSAPP_NUMBER = "221773249642";
 const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || DEFAULT_WHATSAPP_NUMBER).replace(/\D+/g, "");
-const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.vercel.app").replace(/\/+$/, "");
+function getSiteUrl() {
+  if (typeof window !== "undefined") return window.location.origin;
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.vercel.app").replace(/\/+$/, "");
+}
 const phoneRegex = /^[\d\s+.-]{8,20}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -137,7 +140,7 @@ export default function CommandeForm() {
           .join(", ");
         const optionText = options ? ` (${options})` : "";
         lines.push(`- ${item.name}${optionText} x${item.quantity} : ${formatPrice(item.price * item.quantity)}`);
-        lines.push(`  Voir : ${SITE_URL}/products/${item.slug}`);
+        lines.push(`  Voir : ${getSiteUrl()}/products/${item.slug}`);
       });
       lines.push(`Total panier : ${formatPrice(subtotal)}`);
     } else {
