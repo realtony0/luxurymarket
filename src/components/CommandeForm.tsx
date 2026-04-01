@@ -8,6 +8,10 @@ import { formatPrice } from "@/lib/products";
 
 const DEFAULT_WHATSAPP_NUMBER = "221773249642";
 const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || DEFAULT_WHATSAPP_NUMBER).replace(/\D+/g, "");
+function getSiteUrl() {
+  if (typeof window !== "undefined") return window.location.origin;
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://luxury-market.vercel.app").replace(/\/+$/, "");
+}
 const phoneRegex = /^[\d\s+.-]{8,20}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -49,6 +53,7 @@ type FormErrors = {
   nom?: string;
   email?: string;
   telephone?: string;
+  adresse?: string;
   livraison?: string;
   message?: string;
 };
@@ -64,6 +69,7 @@ export default function CommandeForm() {
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
   const [telephone, setTelephone] = useState("");
+  const [adresse, setAdresse] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState("");
   const [article, setArticle] = useState(() => {
     const value = searchParams.get("article");
@@ -92,6 +98,9 @@ export default function CommandeForm() {
       next.telephone = "Numéro invalide.";
     }
 
+    if (!adresse.trim()) next.adresse = "L'adresse de livraison est requise.";
+    else if (adresse.trim().length < 5) next.adresse = "Au moins 5 caractères.";
+
     if (!deliveryMethod) next.livraison = "Choisissez un mode de livraison.";
 
     if (!message.trim()) next.message = "Le message est requis.";
@@ -118,6 +127,7 @@ export default function CommandeForm() {
       `Nom : ${nom.trim()}`,
       `Email : ${email.trim() || "Non renseigné"}`,
       `Téléphone : ${telephone.trim() || "Non renseigné"}`,
+      `Adresse de livraison : ${adresse.trim()}`,
       `Livraison choisie (indicatif) : ${
         selectedDelivery ? `${selectedDelivery.title} — ${selectedDelivery.route}` : "Non renseigné"
       }`,
@@ -136,6 +146,7 @@ export default function CommandeForm() {
           .join(", ");
         const optionText = options ? ` (${options})` : "";
         lines.push(`- ${item.name}${optionText} x${item.quantity} : ${formatPrice(item.price * item.quantity)}`);
+        lines.push(`  Voir : ${getSiteUrl()}/products/${item.slug}`);
       });
       lines.push(`Total panier : ${formatPrice(subtotal)}`);
     } else {
@@ -264,6 +275,28 @@ export default function CommandeForm() {
               {errors.telephone && (
                 <p id="telephone-error" className="mt-1 text-sm text-[var(--accent-deep)]" role="alert">
                   {errors.telephone}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="adresse" className="block text-sm font-medium text-[var(--foreground)]">
+                Adresse de livraison *
+              </label>
+              <input
+                id="adresse"
+                type="text"
+                value={adresse}
+                onChange={(e) => setAdresse(e.target.value)}
+                required
+                aria-invalid={errors.adresse ? "true" : "false"}
+                aria-describedby={errors.adresse ? "adresse-error" : undefined}
+                className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/20"
+                placeholder="Ville, quartier, rue, repère..."
+              />
+              {errors.adresse && (
+                <p id="adresse-error" className="mt-1 text-sm text-[var(--accent-deep)]" role="alert">
+                  {errors.adresse}
                 </p>
               )}
             </div>

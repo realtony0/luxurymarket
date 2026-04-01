@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
   robots: {
     index: true,
     follow: true,

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1f1b1e"/>
+  <rect x="24" y="24" width="464" height="464" rx="72" fill="none" stroke="#f04d07" stroke-width="8" opacity="0.35"/>
+  <text x="256" y="290" text-anchor="middle" dominant-baseline="central" font-family="Impact,'Arial Black',sans-serif" font-size="260" letter-spacing="12" fill="#f04d07">LM</text>
+  <rect x="80" y="380" width="352" height="3" rx="1.5" fill="#f04d07" opacity="0.5"/>
+  <text x="256" y="420" text-anchor="middle" font-family="'Helvetica Neue',Arial,sans-serif" font-size="48" font-weight="600" letter-spacing="16" fill="#faf9f7" opacity="0.7">LUXURY</text>
+</svg>
